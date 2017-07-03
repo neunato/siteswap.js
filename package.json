@@ -1,0 +1,23 @@
+{
+  "name": "siteswap.js",
+  "version": "0.1.0",
+  "main": "dist/siteswap-0.1.0.js",
+  "scripts": {
+    "rollup": "rollup --format cjs --name Siteswap --input src/entry.js",
+    "babel": "babel --presets=env",
+    "uglify": "uglifyjs --mangle reserved=[Siteswap,Juggle,Toss,State,Transition]",
+    "umd": "umd Siteswap --commonJS",
+    "build": "npm run --silent rollup | npm run --silent umd > dist/siteswap-%npm_package_version%.js",
+    "watch": "watch \"npm run build\" src/",
+    "publish": "npm run build  &  npm run --silent rollup | npm run --silent babel | npm run --silent umd | npm run --silent uglify > dist/siteswap-%npm_package_version%.min.js"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "babel-cli": "^6.24.1",
+    "babel-preset-env": "^1.5.2",
+    "rollup": "^0.43.0",
+    "uglify-js": "^3.0.19",
+    "umd": "^3.0.1",
+    "watch": "^1.0.2"
+  }
+}
