@@ -10,7 +10,8 @@
   "devDependencies": {
     "babel-core": "^6.25.0",
     "babel-preset-env": "^1.6.0",
-    "glupost": "^2.0.1",
+    "glupost": "^2.0.2",
+    "nearley": "git+https://github.com/independentgeorge/nearley.git",
     "rollup": "^0.45.2",
     "rollup-plugin-node-resolve": "^3.0.0",
     "uglify-js": "^3.0.25",

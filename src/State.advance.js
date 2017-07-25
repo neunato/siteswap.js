@@ -3,6 +3,10 @@ import { State } from "./State";
 
 function advance( action ){
 
+   const greatestValue = this.schedule[0].length;
+   if( greatestValue === 0 )
+      return this;
+
    const schedule = [];
    if( this.strict ){
       schedule.push( ...this.schedule.map(handState => [...handState.slice(1).map(balls => balls.slice()), []]) );

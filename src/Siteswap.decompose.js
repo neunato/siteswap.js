@@ -3,7 +3,7 @@ import { Siteswap }   from "./Siteswap";
 import { Transition } from "./Transition";
 
 
-function decompose( states, throws, hands ){
+function decompose( states, throws, notation ){
 
 	const composition = [];
 
@@ -17,9 +17,9 @@ function decompose( states, throws, hands ){
 				}
 
 				if( from > last ){
-					composition.push( new Transition({ hands: hands, siteswap: throws.slice(last, from)}, states[last], states[from]) );
+					composition.push( new Transition(throws.slice(last, from), notation, states[last], states[from]) );
 				}
-				composition.push( new Siteswap({ hands: hands, siteswap: throws.slice(from, to) }) );
+				composition.push( new Siteswap(throws.slice(from, to), notation) );
 				last = to;
 				break;
 			}
@@ -28,7 +28,7 @@ function decompose( states, throws, hands ){
 	}
 
 	if( last !== states.length ){
-		composition.push( new Transition({ hands: hands, siteswap: throws.slice(last)}) );
+		composition.push( new Transition(throws.slice(last), notation) );
 	}
 
 	return composition;

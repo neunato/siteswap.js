@@ -1,625 +1,6 @@
 (function(f){if(typeof exports==="object"&&typeof module!=="undefined"){module.exports=f()}else if(typeof define==="function"&&define.amd){define([],f)}else{var g;if(typeof window!=="undefined"){g=window}else if(typeof global!=="undefined"){g=global}else if(typeof self!=="undefined"){g=self}else{g=this}g.Siteswap = f()}})(function(){var define,module,exports;module={exports:(exports={})};
 'use strict';
 
-function Toss( value, handFrom, handTo ){
-
-	this.value = value;
-	this.handFrom = handFrom;
-	this.handTo = handTo;
-
-}
-
-// If there is anything that needs refactoring, it's this file. The entire 
-// legacy parser bit sucks. I should rebuild it along with a passing notation 
-// parser, possibly multihand too.
-
-// The generic notation itself, or its legacy extension, has some issues:
-// - (5) is treated as an invalid sync pattern
-// - [15][1] is treated as [1,5],1 instead of 15,1
-
-
-class Token {
-   
-   constructor( type, value = null ){
-      this.type = type;
-      this.value = value;
-   }
-
-}
-
-class Tokeniser {
-
-   tokenise( string, patterns ){
-
-      const tokens = [];
-      const keys = Object.keys(patterns);
-
-      let substring = string;
-      while( substring.length ){
-
-         if( !keys.some( (key) => {
-
-            const match = substring.match(patterns[key]);
-            if( match ){
-               const value = match[0];
-               tokens.push( new Token(key, value) );
-               substring = substring.slice(value.length);
-               return true;
-            }
-
-            return false;
-
-         }) ){
-            throw new Error("Unsupported character.");
-         }
-
-      }
-
-      tokens.push( new Token("end") );
-
-      return tokens;
-
-   }
-
-}
-
-class GenericTokeniser extends Tokeniser {
-
-   constructor(){
-
-      super();
-
-      this.tokenTypes = {
-         "[":     /^\[/,
-         "]":     /^\]/,
-         "(":     /^\(/,
-         ")":     /^\)/,
-         ",":     /^,/,
-         " ":     /^ /,
-         "value": /^(?:(?:[1-9][0-9]+)|[0-9])/,
-         "hand":  /^[a-zA-Z]+/
-      };
-
-   }
-
-   tokenise( string ){
-
-      return super.tokenise(string, this.tokenTypes);
-
-   }
-
-}
-
-// After parsing, this one modifies tokens to match the generic parser rules.
-// While doing that, it also checks for some errors (like odd sync throw values,
-// mixing of letters and double digit numbers, and invalid sync mirror structure).
-
-class LegacyTokeniser extends Tokeniser {
-
-   constructor(){
-
-      super();
-
-      this.tokenTypes = {
-         "legacy": {
-            "[":     /^\[/,
-            "]":     /^\]/,
-            "(":     /^\(/,
-            ")":     /^\)/,
-            ",":     /^,/,
-            " ":     /^ /,
-            "cross": /^x/,
-            "value": /^(?:(?:[1-9][0-9]+)|[0-9]|[a-zA-Z])/,
-            "mirror": /^\*/
-         },
-
-         "legacyCompressed": {
-            "[":     /^\[/,
-            "]":     /^\]/,
-            "(":     /^\(/,
-            ")":     /^\)/,
-            ",":     /^,/,       // Only possible between actions.
-            " ":     /^ /,       // Only possible between actions.
-            "cross": /^x/,
-            "value": /^(?:[0-9]|[a-zA-Z])/,
-            "mirror": /^\*/
-         }
-      };
-
-   }
-
-   numerify( tokens ){
-
-      const alpha = /^[a-z]$/i;
-      const numeric = /^[1-9][0-9]+$/;
-
-      const letters = tokens.some(token => alpha.test(token.value));
-      const digits = tokens.some(token => numeric.test(token.value));
-      if( letters && digits ){
-         throw new Error("Inconsistent use of letters and double digit throw values.");
-      }
-
-      if( letters ){
-         const offset = {
-            "a": -("a".charCodeAt(0)) + 10,
-            "A": -("A".charCodeAt(0)) + 36
-         };
-         for( const token of tokens ){
-            if( /[a-z]/.test(token.value) )
-              token.value = token.value.charCodeAt(0) + offset["a"];
-            else if( /[A-Z]/.test(token.value) )
-              token.value = token.value.charCodeAt(0) + offset["A"];
-         }
-      }
-
-   }
-
-   separate( tokens ){
-
-      const refined = [];
-      for( let i = 0; i < tokens.length - 1; i++ ){
-         refined.push( tokens[i] );
-         if( (tokens[i].type === "value" || tokens[i].type === "hand") && tokens[i + 1].type === "value" )
-            refined.push( new Token(",", ",") );
-      }
-      refined.push(tokens[tokens.length - 1]);
-      return refined;
-
-   }
-
-   halve( tokens ){
-
-      for( const token of tokens ){
-         const value = parseInt(token.value);
-         if( value % 2 === 1 )
-            throw new Error("Legacy sync mode allows only odd throw values.");
-         token.value = value / 2;
-      }
-
-   }
-
-   handify( tokens, hands ){
-
-      const refined = [];
-
-      for( let i = 0; i < tokens.length; i++ ){
-
-         if( tokens[i].type === "("  &&  i + 1 < tokens.length  &&  tokens[i + 1].type === "value" ){
-
-            refined.push( tokens[i++] );   // (
-            refined.push( tokens[i++] );   // value
-            let hand;
-            if( tokens[i].type === "cross" ){
-               hand = hands[1];
-            }
-            else{
-               hand = hands[0];
-               i--;
-            }
-            refined.push( new Token("hand", hand) );
-            continue;
-         }
-
-
-         if( tokens[i].type === "value"  &&  ((i + 1 < tokens.length && tokens[i + 1].type === ")") || (i + 2 < tokens.length && tokens[i + 2].type === ")")) ){
-
-            refined.push( tokens[i++] );   // value
-            let hand;
-            if( tokens[i].type === "cross" ){
-               hand = hands[0];
-            }
-            else{
-               hand = hands[1];
-               i--;
-            }
-            refined.push( new Token("hand", hand) );
-            refined.push( tokens[++i] );
-            continue;
-         }
-
-         refined.push( tokens[i] );
-
-      }
-
-      return refined;
-
-   }
-
-   tokenise( string, hands ){
-
-      const sync = string.includes("(");
-      const compressed = (sync  ?  /\([^)]*[, ].*\)/  :  /[, ]/).test(string);
-      const types = this.tokenTypes[compressed ? "legacy" : "legacyCompressed"];
-
-      let tokens = super.tokenise(string, types);
-      const values = tokens.filter( token => token.type === "value" );
-
-      // Convert letters to numbers.
-      this.numerify(values);
-
-      // Insert separators if compressed.
-      if( compressed )
-         tokens = this.separate(tokens);
-
-      // Halve synchronous throw values.
-      if( sync )
-         this.halve(values);
-
-      // Specify hands.
-      tokens = this.handify(tokens, hands);
-
-      return tokens;
-
-   }
-
-}
-
-
-
-class Parser {
-
-   constructor(){
-
-      this.state = null;
-      this.tokens = null;
-      this.legacyTokeniser = new LegacyTokeniser();
-      this.genericTokeniser = new GenericTokeniser();
-
-   }
-
-   // Check if the upcoming token(s) are of a given type, without advancing.
-   upcoming( types ){
-
-      if( typeof types === "string" )
-         return this.tokens[this.tokens.length - 1].type === types;
-
-      return types.some( type => this.tokens[this.tokens.length - 1].type === type );
-
-   }
-
-   // Return the next token's value if it of a given type, or throw if not.
-   expect( type, message = "Unexpected token." ){
-   
-      if( !this.upcoming(type) )
-         throw new Error(message);
-      return this.tokens.pop().value;
-
-   }
-
-
-   set( name, value, message ){
-
-      if( this.state[name] === undefined )
-         this.state[name] = value;
-
-      else if( this.state[name] !== value )
-         throw new Error(message);
-
-   }
-
-   autoset( name, tokenTypes, message ){
-
-      for( const type of tokenTypes ){
-         if( this.upcoming(type) ){
-            this.set(name, type, message);
-            return type;
-         }
-      }
-      this.set(name, null, 'Expecting "' + this.state[name] + '", got "' + this.tokens[this.tokens.length - 1].type + '".');
-      return null;
-
-   }
-
-   /////////////////////////////////////////////////////////////////
-
-   parse( string, hands, legacy ){
-
-      this.state = {};
-      
-      // Get rid of all the insignifant spaces leaving only separator spaces behind.
-      const siteswap = string.trim().replace(/  +/g, " ").replace(/ ?([[,]|[\],]) ?/g, "$1");
-      if( siteswap === "" )
-         throw new Error("No siteswap supplied.");
-
-      const tokeniser = legacy ? this.legacyTokeniser : this.genericTokeniser;
-      this.tokens = tokeniser.tokenise(siteswap, hands).reverse();
-
-      return this.siteswap(hands);
-
-   }
-
-   siteswap( hands ){
-
-      const actions = [ this.action(hands) ];
-
-      const separators = [",", " "];
-      const separated = this.upcoming(separators);
-
-      while( !this.upcoming("end") ){
-         if( separated ){
-            const separator = this.autoset("actionSeparator", separators, "Inconsistent use of action separators");
-            this.expect(separator);
-         }
-         actions.push( this.action(hands) );      
-      }
-
-      return actions;
-
-   }
-
-   action( hands ){
-
-      if( hands.length === 1 ){
-         this.autoset("actionBrackets", "(", "Inconsistent use of action brackets");
-         return [ this.release(hands, hands[0]) ];
-      }
-
-      this.expect("(");
-
-      const action = [ this.release(hands, hands[0]) ];
-
-
-      const separators = [",", " "];
-      const separated = this.upcoming(separators);
-
-      for( let i = 1; i < hands.length; i++ ){
-         if( separated ){
-            const separator = this.autoset("releaseSeparator", separators, "Inconsistent use of release separators");
-            this.expect(separator);
-         }
-         action.push( this.release(hands, hands[i]) );
-      }
-
-      this.expect(")");
-
-      return action;
-
-   }
-
-   release( hands, hand ){
-
-      // Rules for multiplex brackets are slightly more complicated:
-      // grouping of 2+ tosses requires them, but they are allowed in
-      // 1 toss releases as long as they are omnipresent :).
-
-      const bracketed = this.upcoming("[");
-
-      if( !bracketed ){
-         this.set("releaseBrackets", false, "Inconsistent use of release brackets.");
-         return [ this.toss(hands, hand) ];
-      }
-
-
-      this.expect("[");
-      const release = [ this.toss(hands, hand) ];
-
-
-      const separators = [",", " "];
-      const separated = this.upcoming(separators);
-
-      while( !this.upcoming("]") ){
-         if( separated ){
-            const separator = this.autoset("tossSeparator", separators, "Inconsistent use of toss separators");
-            this.expect(separator);
-         }
-         release.push( this.toss(hands, hand) );
-      }
-  
-      this.expect("]");
-
-      if( release.length === 1 ){
-         this.set("releaseBrackets", true, "Inconsistent use of release brackets.");
-      }
-
-      return release;
-
-   }
-
-   toss( hands, hand ){
-
-      const value = parseInt(this.expect("value"));
-      let handTo;
-
-      if( !this.upcoming("hand") ){
-         this.set("selfHand", true, "Same hand throws inconsistently denoted.");
-         handTo = hand;
-      }
-      else{
-         handTo = this.expect("hand");
-
-         if( handTo === hand )
-            this.set("selfHand", false, "Same hand throws inconsistently denoted.");
-      }
-
-      if( value === 0 )
-         return new Toss(0, null, null);
-
-      return new Toss(value, hands.indexOf(hand), hands.indexOf(handTo));
-
-   }
-
-
-}
-
-
-
-let parser;
-
-function parse( string, hands, legacy ){
-
-   if( !parser )
-      parser = new Parser();
-
-   return parser.parse(string, hands, legacy);
-
-}
-
-function unique( array ){
-
-	return array.reduce(function(result, current){
-		if( !result.includes( current ) )
-			result.push( current );
-		return result;
-	}, []);
-
-}
-
-const unspecial = /^[a-z]$/i;
-
-function validateHands( hands ){
-
-	if( !Array.isArray(hands) || !hands.length || !hands.every(hand => typeof hand === "string" && unspecial.test(hand)) || unique(hands).length !== hands.length )
-		throw new Error("Invalid hand sequence.");
-
-}
-
-function validateThrows( throws ){
-
-	if( !Array.isArray(throws) || !throws.length )
-		throw new Error("Invalid throw sequence.");
-
-	for( const action of throws ){
-		if( !Array.isArray(action) || action.length !== throws[0].length )
-			throw new Error("Invalid throw sequence.");
-
-		if( action.some(release => !Array.isArray(release) || !release.every(toss => toss instanceof Toss)) )
-			throw new Error("Invalid throw sequence.");
-	}
-
-}
-
-function mirrorThrows( throws ){
-
-   for( let i = 0, n = throws.length; i < n; i++ )
-      throws.push( throws[i].map( release => release.map(toss => new Toss(toss.value, 1 - toss.handFrom, 1 - toss.handTo)) ).reverse() );
-
-}
-
-function stringify( throws, hands ){
-
-	if( hands.length === 1 ){
-
-		return throws.map(function(action){
-			const release = action[0];
-			const string = release.map(toss => toss.value).join(",");
-			return release.length === 1 ? string : ("[" + string + "]");
-		}).join(",");
-
-	}
-	else{
-
-		return throws.map(function(action){
-			return "(" + action.map(function(release){
-				const string = release.map(toss => toss.value + (toss.value === 0 ? "" : hands[toss.handTo])).join(",");
-				return release.length === 1 ? string : ("[" + string + "]");
-			}).join(",") + ")";
-		}).join("");
-
-	}
-
-}
-
-// A juggle is either a siteswap or a transition between states. It 
-// validates the throw and hand sequences' structure. If legacy mode,
-// it assigns default hands and mirrors the throw sequence (after
-// structure validation).
-
-// Transitions don't do much at the moment (they only appear in
-// `.composition`), their existence will be justified once the
-// graph and generation come to life. They are also expected to
-// be used for connecting siteswaps (going from one to another).
-
-class Juggle {
-   
-   constructor( input, legacy ){
-
-      this.input = input;
-
-      try{
-
-         let siteswap;
-         let hands;
-         let mirrored = false;
-
-         // Input is string: separate hands from siteswap.
-         if( typeof input === "string" ){
-            [ siteswap, hands ] = input.split(":").reverse();
-            if( hands )
-               hands = hands.replace(" ", "").split(",");
-         }
-         // Input is object: hands and siteswap are separated.
-         else if( typeof input === "object" && input.siteswap ){
-            [ siteswap, hands ] = [ input.siteswap, input.hands ];
-         }
-         else{
-            throw new Error("Invalid input.");
-         }
-
-
-         // Legacy adjustments slightly complicate things.
-         if( legacy ){
-
-            if( !hands ){
-               if( typeof siteswap === "string" ) 
-                  hands = siteswap.includes("(") ? ["l", "r"] : ["l"];
-               else
-                  hands = siteswap[0].length === 2 ? ["l", "r"] : ["l"];
-            }
-
-            if( hands.length > 2 ){
-               throw new Error("Legacy mode supports at most two hands.");
-            }
-
-            const mirror = /\* *$/;
-            if( typeof siteswap === "string" && mirror.test(siteswap) ){
-               siteswap = siteswap.replace(mirror, "");
-               mirrored = true;
-            }
-
-         }
-
-         // Parse and validate throws and hands.
-         this.validateHands(hands);
-
-         const throws = typeof siteswap === "string" ? this.parse(siteswap, hands, legacy) : siteswap;
-
-         this.validateThrows(throws);
-
-         // Mirror throws after they're parsed, if needed.
-         if( mirrored )
-            this.mirrorThrows(throws);
-
-
-         const values = throws.reduce((result, action) => Array.prototype.concat.apply(result, action.map(release => release.map(toss => toss.value))), []);
-         
-         // Assign properties.
-         this.hands         = hands;
-         this.throws        = throws;
-         this.valid         = true;
-         this.degree        = hands.length;
-         this.props         = values.reduce((sum, value) => sum + value, 0) / this.throws.length;
-         this.multiplex     = throws.reduce( (max, action) => Math.max.apply(null, [max, ...action.map(release => release.length)]), 0 );
-         this.greatestValue = Math.max.apply(null, values);
-         this.string        = this.stringify(this.throws, this.hands);
-
-      }
-      catch(e){
-
-         this.valid = false;
-         this.message = e.message;
-
-      }
-
-   }
-
-}
-
-Juggle.prototype.parse = parse;
-Juggle.prototype.validateHands = validateHands;
-Juggle.prototype.validateThrows = validateThrows;
-Juggle.prototype.mirrorThrows = mirrorThrows;
-Juggle.prototype.stringify = stringify;
-
 // Validates the siteswap for collisions. Assumes that throws sequence structure is valid.
 
 function validate( throws ){
@@ -698,6 +79,10 @@ function truncate( throws ){
 }
 
 function advance( action ){
+
+   const greatestValue = this.schedule[0].length;
+   if( greatestValue === 0 )
+      return this;
 
    const schedule = [];
    if( this.strict ){
@@ -896,6 +281,14 @@ function schedulise( throws, strict ){
 
 }
 
+function Toss( value, handFrom, handTo ){
+
+	this.value = value;
+	this.handFrom = handFrom;
+	this.handTo = handTo;
+
+}
+
 function mark( orbit, map, throws, i, j ){
 
 	const release = throws[i][j];
@@ -915,7 +308,7 @@ function mark( orbit, map, throws, i, j ){
 }
 
 
-function orbitise( throws, hands ){
+function orbitise( throws, notation ){
 
 	const orbits = [];
 
@@ -943,15 +336,849 @@ function orbitise( throws, hands ){
 			orbit.push( action.map( (release, j) => map[i][j] === orbit ? release : [new Toss(0, null, null)] ) );
 	}
 
-	return orbits.map( orbit => new Siteswap({ hands, siteswap: orbit }) );
+	return orbits.map( orbit => new Siteswap(orbit, notation) );
 
 }
 
+function Rule(name, symbols, postprocess) {
+    this.id = ++Rule.highestId;
+    this.name = name;
+    this.symbols = symbols;        // a list of literal | regex class | nonterminal
+    this.postprocess = postprocess;
+    return this;
+}
+Rule.highestId = 0;
+
+Rule.prototype.toString = function(withCursorAt) {
+    function stringifySymbolSequence (e) {
+        return e.literal ? JSON.stringify(e.literal) :
+               e.type ? '%' + e.type : e.toString();
+    }
+    var symbolSequence = (typeof withCursorAt === "undefined")
+                         ? this.symbols.map(stringifySymbolSequence).join(' ')
+                         : (   this.symbols.slice(0, withCursorAt).map(stringifySymbolSequence).join(' ')
+                             + " ● "
+                             + this.symbols.slice(withCursorAt).map(stringifySymbolSequence).join(' ')     );
+    return this.name + " → " + symbolSequence;
+};
+
+
+// a State is a rule at a position from a given starting point in the input stream (reference)
+function State$1(rule, dot, reference, wantedBy) {
+    this.rule = rule;
+    this.dot = dot;
+    this.reference = reference;
+    this.data = [];
+    this.wantedBy = wantedBy;
+    this.isComplete = this.dot === rule.symbols.length;
+}
+
+State$1.prototype.toString = function() {
+    return "{" + this.rule.toString(this.dot) + "}, from: " + (this.reference || 0);
+};
+
+State$1.prototype.nextState = function(child) {
+    var state = new State$1(this.rule, this.dot + 1, this.reference, this.wantedBy);
+    state.left = this;
+    state.right = child;
+    if (state.isComplete) {
+        state.data = state.build();
+    }
+    return state;
+};
+
+State$1.prototype.build = function() {
+    var children = [];
+    var node = this;
+    do {
+        children.push(node.right.data);
+        node = node.left;
+    } while (node.left);
+    children.reverse();
+    return children;
+};
+
+State$1.prototype.finish = function() {
+    if (this.rule.postprocess) {
+        this.data = this.rule.postprocess(this.data, this.reference, Parser.fail);
+    }
+};
+
+
+function Column(grammar, index) {
+    this.grammar = grammar;
+    this.index = index;
+    this.states = [];
+    this.wants = {}; // states indexed by the non-terminal they expect
+    this.scannable = []; // list of states that expect a token
+    this.completed = {}; // states that are nullable
+}
+
+
+Column.prototype.process = function(nextColumn) {
+    var states = this.states;
+    var wants = this.wants;
+    var completed = this.completed;
+
+    for (var w = 0; w < states.length; w++) { // nb. we push() during iteration
+        var state = states[w];
+
+        if (state.isComplete) {
+            state.finish();
+            if (state.data !== Parser.fail) {
+                // complete
+                var wantedBy = state.wantedBy;
+                for (var i = wantedBy.length; i--; ) { // this line is hot
+                    var left = wantedBy[i];
+                    this.complete(left, state);
+                }
+
+                // special-case nullables
+                if (state.reference === this.index) {
+                    // make sure future predictors of this rule get completed.
+                    var exp = state.rule.name;
+                    (this.completed[exp] = this.completed[exp] || []).push(state);
+                }
+            }
+
+        } else {
+            // queue scannable states
+            var exp = state.rule.symbols[state.dot];
+            if (typeof exp !== 'string') {
+                this.scannable.push(state);
+                continue;
+            }
+
+            // predict
+            if (wants[exp]) {
+                wants[exp].push(state);
+
+                if (completed.hasOwnProperty(exp)) {
+                    var nulls = completed[exp];
+                    for (var i = 0; i < nulls.length; i++) {
+                        var right = nulls[i];
+                        this.complete(state, right);
+                    }
+                }
+            } else {
+                wants[exp] = [state];
+                this.predict(exp);
+            }
+        }
+    }
+};
+
+Column.prototype.predict = function(exp) {
+    var rules = this.grammar.byName[exp] || [];
+
+    for (var i = 0; i < rules.length; i++) {
+        var r = rules[i];
+        var wantedBy = this.wants[exp];
+        var s = new State$1(r, 0, this.index, wantedBy);
+        this.states.push(s);
+    }
+};
+
+Column.prototype.complete = function(left, right) {
+    var inp = right.rule.name;
+    if (left.rule.symbols[left.dot] === inp) {
+        var copy = left.nextState(right);
+        this.states.push(copy);
+    }
+};
+
+
+function Grammar(rules, start) {
+    this.rules = rules;
+    this.start = start || this.rules[0].name;
+    var byName = this.byName = {};
+    this.rules.forEach(function(rule) {
+        if (!byName.hasOwnProperty(rule.name)) {
+            byName[rule.name] = [];
+        }
+        byName[rule.name].push(rule);
+    });
+}
+
+// So we can allow passing (rules, start) directly to Parser for backwards compatibility
+Grammar.fromCompiled = function(rules, start) {
+    var lexer = rules.Lexer;
+    if (rules.ParserStart) {
+      start = rules.ParserStart;
+      rules = rules.ParserRules;
+    }
+    var rules = rules.map(function (r) { return (new Rule(r.name, r.symbols, r.postprocess)); });
+    var g = new Grammar(rules, start);
+    g.lexer = lexer; // nb. storing lexer on Grammar is iffy, but unavoidable
+    return g;
+};
+
+
+function StreamLexer() {
+  this.reset("");
+}
+
+StreamLexer.prototype.reset = function(data, state) {
+    this.buffer = data;
+    this.index = 0;
+    this.line = state ? state.line : 1;
+    this.lastLineBreak = state ? -state.col : 0;
+};
+
+StreamLexer.prototype.next = function() {
+    if (this.index < this.buffer.length) {
+        var ch = this.buffer[this.index++];
+        if (ch === '\n') {
+          this.line += 1;
+          this.lastLineBreak = this.index;
+        }
+        return {value: ch};
+    }
+};
+
+StreamLexer.prototype.save = function() {
+  return {
+    line: this.line,
+    col: this.index - this.lastLineBreak,
+  }
+};
+
+StreamLexer.prototype.formatError = function(token, message) {
+    // nb. this gets called after consuming the offending token,
+    // so the culprit is index-1
+    var buffer = this.buffer;
+    if (typeof buffer === 'string') {
+        var nextLineBreak = buffer.indexOf('\n', this.index);
+        if (nextLineBreak === -1) nextLineBreak = buffer.length;
+        var line = buffer.substring(this.lastLineBreak, nextLineBreak);
+        var col = this.index - this.lastLineBreak;
+        message += " at line " + this.line + " col " + col + ":\n\n";
+        message += "  " + line + "\n";
+        message += "  " + Array(col).join(" ") + "^";
+        return message;
+    } else {
+        return message + " at index " + (this.index - 1);
+    }
+};
+
+
+function Parser(rules, start, options) {
+    if (rules instanceof Grammar) {
+        var grammar = rules;
+        var options = start;
+    } else {
+        var grammar = Grammar.fromCompiled(rules, start);
+    }
+    this.grammar = grammar;
+
+    // Read options
+    this.options = {
+        keepHistory: false,
+        lexer: grammar.lexer || new StreamLexer,
+    };
+    for (var key in (options || {})) {
+        this.options[key] = options[key];
+    }
+
+    // Setup lexer
+    this.lexer = this.options.lexer;
+    this.lexerState = undefined;
+
+    // Setup a table
+    var column = new Column(grammar, 0);
+    var table = this.table = [column];
+
+    // I could be expecting anything.
+    column.wants[grammar.start] = [];
+    column.predict(grammar.start);
+    // TODO what if start rule is nullable?
+    column.process();
+    this.current = 0; // token index
+}
+
+// create a reserved token for indicating a parse fail
+Parser.fail = {};
+
+Parser.prototype.feed = function(chunk) {
+    var lexer = this.lexer;
+    lexer.reset(chunk, this.lexerState);
+
+    var token;
+    while (token = lexer.next()) {
+        // We add new states to table[current+1]
+        var column = this.table[this.current];
+
+        // GC unused states
+        if (!this.options.keepHistory) {
+            delete this.table[this.current - 1];
+        }
+
+        var n = this.current + 1;
+        var nextColumn = new Column(this.grammar, n);
+        this.table.push(nextColumn);
+
+        // Advance all tokens that expect the symbol
+        var literal = token.value;
+        var value = lexer.constructor === StreamLexer ? token.value : token;
+        var scannable = column.scannable;
+        for (var w = scannable.length; w--; ) {
+            var state = scannable[w];
+            var expect = state.rule.symbols[state.dot];
+            // Try to consume the token
+            // either regex or literal
+            if (expect.test ? expect.test(value) :
+                expect.type ? expect.type === token.type
+                            : expect.literal === literal) {
+                // Add it
+                var next = state.nextState({data: value, token: token, isToken: true, reference: n - 1});
+                nextColumn.states.push(next);
+            }
+        }
+
+        // Next, for each of the rules, we either
+        // (a) complete it, and try to see if the reference row expected that
+        //     rule
+        // (b) predict the next nonterminal it expects by adding that
+        //     nonterminal's start state
+        // To prevent duplication, we also keep track of rules we have already
+        // added
+
+        nextColumn.process();
+
+        // If needed, throw an error:
+        if (nextColumn.states.length === 0) {
+            // No states at all! This is not good.
+            var message = this.lexer.formatError(token, "invalid syntax") + "\n";
+            message += "Unexpected " + (token.type ? token.type + " token: " : "");
+            message += JSON.stringify(token.value !== undefined ? token.value : token) + "\n";
+            var err = new Error(message);
+            err.offset = this.current;
+            err.token = token;
+            throw err;
+        }
+
+        // maybe save lexer state
+        if (this.options.keepHistory) {
+          column.lexerState = lexer.save();
+        }
+
+        this.current++;
+    }
+    if (column) {
+      this.lexerState = lexer.save();
+    }
+
+    // Incrementally keep track of results
+    this.results = this.finish();
+
+    // Allow chaining, for whatever it's worth
+    return this;
+};
+
+Parser.prototype.save = function() {
+    var column = this.table[this.current];
+    column.lexerState = this.lexerState;
+    return column;
+};
+
+Parser.prototype.restore = function(column) {
+    var index = column.index;
+    this.current = index;
+    this.table[index] = column;
+    this.table.splice(index + 1);
+    this.lexerState = column.lexerState;
+
+    // Incrementally keep track of results
+    this.results = this.finish();
+};
+
+// nb. deprecated: use save/restore instead!
+Parser.prototype.rewind = function(index) {
+    if (!this.options.keepHistory) {
+        throw new Error('set option `keepHistory` to enable rewinding')
+    }
+    // nb. recall column (table) indicies fall between token indicies.
+    //        col 0   --   token 0   --   col 1
+    this.restore(this.table[index]);
+};
+
+Parser.prototype.finish = function() {
+    // Return the possible parsings
+    var considerations = [];
+    var start = this.grammar.start;
+    var column = this.table[this.table.length - 1];
+    column.states.forEach(function (t) {
+        if (t.rule.name === start
+                && t.dot === t.rule.symbols.length
+                && t.reference === 0
+                && t.data !== Parser.fail) {
+            considerations.push(t);
+        }
+    });
+    return considerations.map(function(c) {return c.data; });
+};
+
+// Generated automatically by nearley
+// http://github.com/Hardmath123/nearley
+function id(x) {return x[0]; }
+
+
+function mirror( throws ){
+
+   return throws.concat( throws.map( action => action.map( release => release.map(({ value, crossing }) => ({ value, crossing })) ).reverse() ));
+
+}
+
+function finalise( throws ){
+  
+   return throws.map( action => action.map((release, i) => release.map(toss => new Toss(toss.value, i, toss.crossing ? 1 - i : i))) );
+
+}
+
+var grammar = {
+    Lexer: undefined,
+    ParserRules: [
+    {"name": "siteswap", "symbols": ["siteswap_a"], "postprocess": data => finalise(data[0])},
+    {"name": "siteswap", "symbols": ["siteswap_s"], "postprocess": data => finalise(data[0])},
+    {"name": "siteswap_a$macrocall$2$macrocall$2", "symbols": [{"literal":","}]},
+    {"name": "siteswap_a$macrocall$2$macrocall$1$macrocall$2", "symbols": ["siteswap_a$macrocall$2$macrocall$2"]},
+    {"name": "siteswap_a$macrocall$2$macrocall$1$macrocall$1", "symbols": ["toss_a"]},
+    {"name": "siteswap_a$macrocall$2$macrocall$1$macrocall$1$ebnf$1$subexpression$1", "symbols": ["siteswap_a$macrocall$2$macrocall$1$macrocall$2", "toss_a"]},
+    {"name": "siteswap_a$macrocall$2$macrocall$1$macrocall$1$ebnf$1", "symbols": ["siteswap_a$macrocall$2$macrocall$1$macrocall$1$ebnf$1$subexpression$1"]},
+    {"name": "siteswap_a$macrocall$2$macrocall$1$macrocall$1$ebnf$1$subexpression$2", "symbols": ["siteswap_a$macrocall$2$macrocall$1$macrocall$2", "toss_a"]},
+    {"name": "siteswap_a$macrocall$2$macrocall$1$macrocall$1$ebnf$1", "symbols": ["siteswap_a$macrocall$2$macrocall$1$macrocall$1$ebnf$1", "siteswap_a$macrocall$2$macrocall$1$macrocall$1$ebnf$1$subexpression$2"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
+    {"name": "siteswap_a$macrocall$2$macrocall$1$macrocall$1", "symbols": [{"literal":"["}, "toss_a", "siteswap_a$macrocall$2$macrocall$1$macrocall$1$ebnf$1", {"literal":"]"}], "postprocess": data => [data[1], ...data[2].map(el => el[1])]},
+    {"name": "siteswap_a$macrocall$2$macrocall$1", "symbols": ["siteswap_a$macrocall$2$macrocall$1$macrocall$1"]},
+    {"name": "siteswap_a$macrocall$2", "symbols": ["siteswap_a$macrocall$2$macrocall$1"]},
+    {"name": "siteswap_a$macrocall$3", "symbols": [{"literal":","}]},
+    {"name": "siteswap_a$macrocall$1$ebnf$1", "symbols": []},
+    {"name": "siteswap_a$macrocall$1$ebnf$1$subexpression$1", "symbols": ["siteswap_a$macrocall$3", "siteswap_a$macrocall$2"]},
+    {"name": "siteswap_a$macrocall$1$ebnf$1", "symbols": ["siteswap_a$macrocall$1$ebnf$1", "siteswap_a$macrocall$1$ebnf$1$subexpression$1"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
+    {"name": "siteswap_a$macrocall$1", "symbols": ["siteswap_a$macrocall$2", "siteswap_a$macrocall$1$ebnf$1"], "postprocess": data => [data[0][0], ...data[1].map(m => m[1][0])]},
+    {"name": "siteswap_a", "symbols": ["siteswap_a$macrocall$1"], "postprocess": id},
+    {"name": "siteswap_a$macrocall$5$macrocall$2", "symbols": [{"literal":" "}]},
+    {"name": "siteswap_a$macrocall$5$macrocall$1$macrocall$2", "symbols": ["siteswap_a$macrocall$5$macrocall$2"]},
+    {"name": "siteswap_a$macrocall$5$macrocall$1$macrocall$1", "symbols": ["toss_a"]},
+    {"name": "siteswap_a$macrocall$5$macrocall$1$macrocall$1$ebnf$1$subexpression$1", "symbols": ["siteswap_a$macrocall$5$macrocall$1$macrocall$2", "toss_a"]},
+    {"name": "siteswap_a$macrocall$5$macrocall$1$macrocall$1$ebnf$1", "symbols": ["siteswap_a$macrocall$5$macrocall$1$macrocall$1$ebnf$1$subexpression$1"]},
+    {"name": "siteswap_a$macrocall$5$macrocall$1$macrocall$1$ebnf$1$subexpression$2", "symbols": ["siteswap_a$macrocall$5$macrocall$1$macrocall$2", "toss_a"]},
+    {"name": "siteswap_a$macrocall$5$macrocall$1$macrocall$1$ebnf$1", "symbols": ["siteswap_a$macrocall$5$macrocall$1$macrocall$1$ebnf$1", "siteswap_a$macrocall$5$macrocall$1$macrocall$1$ebnf$1$subexpression$2"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
+    {"name": "siteswap_a$macrocall$5$macrocall$1$macrocall$1", "symbols": [{"literal":"["}, "toss_a", "siteswap_a$macrocall$5$macrocall$1$macrocall$1$ebnf$1", {"literal":"]"}], "postprocess": data => [data[1], ...data[2].map(el => el[1])]},
+    {"name": "siteswap_a$macrocall$5$macrocall$1", "symbols": ["siteswap_a$macrocall$5$macrocall$1$macrocall$1"]},
+    {"name": "siteswap_a$macrocall$5", "symbols": ["siteswap_a$macrocall$5$macrocall$1"]},
+    {"name": "siteswap_a$macrocall$6", "symbols": [{"literal":" "}]},
+    {"name": "siteswap_a$macrocall$4$ebnf$1", "symbols": []},
+    {"name": "siteswap_a$macrocall$4$ebnf$1$subexpression$1", "symbols": ["siteswap_a$macrocall$6", "siteswap_a$macrocall$5"]},
+    {"name": "siteswap_a$macrocall$4$ebnf$1", "symbols": ["siteswap_a$macrocall$4$ebnf$1", "siteswap_a$macrocall$4$ebnf$1$subexpression$1"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
+    {"name": "siteswap_a$macrocall$4", "symbols": ["siteswap_a$macrocall$5", "siteswap_a$macrocall$4$ebnf$1"], "postprocess": data => [data[0][0], ...data[1].map(m => m[1][0])]},
+    {"name": "siteswap_a", "symbols": ["siteswap_a$macrocall$4"], "postprocess": id},
+    {"name": "toss_a", "symbols": ["digit_a"], "postprocess": data => ({ value: data[0] })},
+    {"name": "digit_a", "symbols": [/[0-9]/], "postprocess": data => Number(data[0])},
+    {"name": "digit_a$ebnf$1", "symbols": [/[0-9]/]},
+    {"name": "digit_a$ebnf$1", "symbols": ["digit_a$ebnf$1", /[0-9]/], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
+    {"name": "digit_a", "symbols": [/[1-9]/, "digit_a$ebnf$1"], "postprocess": data => Number([data[0], ...data[1]].join(""))},
+    {"name": "siteswap_s$ebnf$1$macrocall$2", "symbols": [{"literal":","}]},
+    {"name": "siteswap_s$ebnf$1$macrocall$1$macrocall$2", "symbols": ["siteswap_s$ebnf$1$macrocall$2"]},
+    {"name": "siteswap_s$ebnf$1$macrocall$1$macrocall$1", "symbols": ["toss_s"]},
+    {"name": "siteswap_s$ebnf$1$macrocall$1$macrocall$1$ebnf$1$subexpression$1", "symbols": ["siteswap_s$ebnf$1$macrocall$1$macrocall$2", "toss_s"]},
+    {"name": "siteswap_s$ebnf$1$macrocall$1$macrocall$1$ebnf$1", "symbols": ["siteswap_s$ebnf$1$macrocall$1$macrocall$1$ebnf$1$subexpression$1"]},
+    {"name": "siteswap_s$ebnf$1$macrocall$1$macrocall$1$ebnf$1$subexpression$2", "symbols": ["siteswap_s$ebnf$1$macrocall$1$macrocall$2", "toss_s"]},
+    {"name": "siteswap_s$ebnf$1$macrocall$1$macrocall$1$ebnf$1", "symbols": ["siteswap_s$ebnf$1$macrocall$1$macrocall$1$ebnf$1", "siteswap_s$ebnf$1$macrocall$1$macrocall$1$ebnf$1$subexpression$2"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
+    {"name": "siteswap_s$ebnf$1$macrocall$1$macrocall$1", "symbols": [{"literal":"["}, "toss_s", "siteswap_s$ebnf$1$macrocall$1$macrocall$1$ebnf$1", {"literal":"]"}], "postprocess": data => [data[1], ...data[2].map(el => el[1])]},
+    {"name": "siteswap_s$ebnf$1$macrocall$1$macrocall$4", "symbols": ["siteswap_s$ebnf$1$macrocall$2"]},
+    {"name": "siteswap_s$ebnf$1$macrocall$1$macrocall$3", "symbols": ["toss_s"]},
+    {"name": "siteswap_s$ebnf$1$macrocall$1$macrocall$3$ebnf$1$subexpression$1", "symbols": ["siteswap_s$ebnf$1$macrocall$1$macrocall$4", "toss_s"]},
+    {"name": "siteswap_s$ebnf$1$macrocall$1$macrocall$3$ebnf$1", "symbols": ["siteswap_s$ebnf$1$macrocall$1$macrocall$3$ebnf$1$subexpression$1"]},
+    {"name": "siteswap_s$ebnf$1$macrocall$1$macrocall$3$ebnf$1$subexpression$2", "symbols": ["siteswap_s$ebnf$1$macrocall$1$macrocall$4", "toss_s"]},
+    {"name": "siteswap_s$ebnf$1$macrocall$1$macrocall$3$ebnf$1", "symbols": ["siteswap_s$ebnf$1$macrocall$1$macrocall$3$ebnf$1", "siteswap_s$ebnf$1$macrocall$1$macrocall$3$ebnf$1$subexpression$2"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
+    {"name": "siteswap_s$ebnf$1$macrocall$1$macrocall$3", "symbols": [{"literal":"["}, "toss_s", "siteswap_s$ebnf$1$macrocall$1$macrocall$3$ebnf$1", {"literal":"]"}], "postprocess": data => [data[1], ...data[2].map(el => el[1])]},
+    {"name": "siteswap_s$ebnf$1$macrocall$1", "symbols": [{"literal":"("}, "siteswap_s$ebnf$1$macrocall$1$macrocall$1", "siteswap_s$ebnf$1$macrocall$2", "siteswap_s$ebnf$1$macrocall$1$macrocall$3", {"literal":")"}], "postprocess": data => [data[1], data[3]]},
+    {"name": "siteswap_s$ebnf$1", "symbols": ["siteswap_s$ebnf$1$macrocall$1"]},
+    {"name": "siteswap_s$ebnf$1$macrocall$4", "symbols": [{"literal":","}]},
+    {"name": "siteswap_s$ebnf$1$macrocall$3$macrocall$2", "symbols": ["siteswap_s$ebnf$1$macrocall$4"]},
+    {"name": "siteswap_s$ebnf$1$macrocall$3$macrocall$1", "symbols": ["toss_s"]},
+    {"name": "siteswap_s$ebnf$1$macrocall$3$macrocall$1$ebnf$1$subexpression$1", "symbols": ["siteswap_s$ebnf$1$macrocall$3$macrocall$2", "toss_s"]},
+    {"name": "siteswap_s$ebnf$1$macrocall$3$macrocall$1$ebnf$1", "symbols": ["siteswap_s$ebnf$1$macrocall$3$macrocall$1$ebnf$1$subexpression$1"]},
+    {"name": "siteswap_s$ebnf$1$macrocall$3$macrocall$1$ebnf$1$subexpression$2", "symbols": ["siteswap_s$ebnf$1$macrocall$3$macrocall$2", "toss_s"]},
+    {"name": "siteswap_s$ebnf$1$macrocall$3$macrocall$1$ebnf$1", "symbols": ["siteswap_s$ebnf$1$macrocall$3$macrocall$1$ebnf$1", "siteswap_s$ebnf$1$macrocall$3$macrocall$1$ebnf$1$subexpression$2"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
+    {"name": "siteswap_s$ebnf$1$macrocall$3$macrocall$1", "symbols": [{"literal":"["}, "toss_s", "siteswap_s$ebnf$1$macrocall$3$macrocall$1$ebnf$1", {"literal":"]"}], "postprocess": data => [data[1], ...data[2].map(el => el[1])]},
+    {"name": "siteswap_s$ebnf$1$macrocall$3$macrocall$4", "symbols": ["siteswap_s$ebnf$1$macrocall$4"]},
+    {"name": "siteswap_s$ebnf$1$macrocall$3$macrocall$3", "symbols": ["toss_s"]},
+    {"name": "siteswap_s$ebnf$1$macrocall$3$macrocall$3$ebnf$1$subexpression$1", "symbols": ["siteswap_s$ebnf$1$macrocall$3$macrocall$4", "toss_s"]},
+    {"name": "siteswap_s$ebnf$1$macrocall$3$macrocall$3$ebnf$1", "symbols": ["siteswap_s$ebnf$1$macrocall$3$macrocall$3$ebnf$1$subexpression$1"]},
+    {"name": "siteswap_s$ebnf$1$macrocall$3$macrocall$3$ebnf$1$subexpression$2", "symbols": ["siteswap_s$ebnf$1$macrocall$3$macrocall$4", "toss_s"]},
+    {"name": "siteswap_s$ebnf$1$macrocall$3$macrocall$3$ebnf$1", "symbols": ["siteswap_s$ebnf$1$macrocall$3$macrocall$3$ebnf$1", "siteswap_s$ebnf$1$macrocall$3$macrocall$3$ebnf$1$subexpression$2"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
+    {"name": "siteswap_s$ebnf$1$macrocall$3$macrocall$3", "symbols": [{"literal":"["}, "toss_s", "siteswap_s$ebnf$1$macrocall$3$macrocall$3$ebnf$1", {"literal":"]"}], "postprocess": data => [data[1], ...data[2].map(el => el[1])]},
+    {"name": "siteswap_s$ebnf$1$macrocall$3", "symbols": [{"literal":"("}, "siteswap_s$ebnf$1$macrocall$3$macrocall$1", "siteswap_s$ebnf$1$macrocall$4", "siteswap_s$ebnf$1$macrocall$3$macrocall$3", {"literal":")"}], "postprocess": data => [data[1], data[3]]},
+    {"name": "siteswap_s$ebnf$1", "symbols": ["siteswap_s$ebnf$1", "siteswap_s$ebnf$1$macrocall$3"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
+    {"name": "siteswap_s$ebnf$2", "symbols": [{"literal":"*"}], "postprocess": id},
+    {"name": "siteswap_s$ebnf$2", "symbols": [], "postprocess": function(d) {return null;}},
+    {"name": "siteswap_s", "symbols": ["siteswap_s$ebnf$1", "siteswap_s$ebnf$2"], "postprocess": data => data[1] === null ? data[0] : mirror(data[0])},
+    {"name": "siteswap_s$ebnf$3$macrocall$2", "symbols": [{"literal":" "}]},
+    {"name": "siteswap_s$ebnf$3$macrocall$1$macrocall$2", "symbols": ["siteswap_s$ebnf$3$macrocall$2"]},
+    {"name": "siteswap_s$ebnf$3$macrocall$1$macrocall$1", "symbols": ["toss_s"]},
+    {"name": "siteswap_s$ebnf$3$macrocall$1$macrocall$1$ebnf$1$subexpression$1", "symbols": ["siteswap_s$ebnf$3$macrocall$1$macrocall$2", "toss_s"]},
+    {"name": "siteswap_s$ebnf$3$macrocall$1$macrocall$1$ebnf$1", "symbols": ["siteswap_s$ebnf$3$macrocall$1$macrocall$1$ebnf$1$subexpression$1"]},
+    {"name": "siteswap_s$ebnf$3$macrocall$1$macrocall$1$ebnf$1$subexpression$2", "symbols": ["siteswap_s$ebnf$3$macrocall$1$macrocall$2", "toss_s"]},
+    {"name": "siteswap_s$ebnf$3$macrocall$1$macrocall$1$ebnf$1", "symbols": ["siteswap_s$ebnf$3$macrocall$1$macrocall$1$ebnf$1", "siteswap_s$ebnf$3$macrocall$1$macrocall$1$ebnf$1$subexpression$2"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
+    {"name": "siteswap_s$ebnf$3$macrocall$1$macrocall$1", "symbols": [{"literal":"["}, "toss_s", "siteswap_s$ebnf$3$macrocall$1$macrocall$1$ebnf$1", {"literal":"]"}], "postprocess": data => [data[1], ...data[2].map(el => el[1])]},
+    {"name": "siteswap_s$ebnf$3$macrocall$1$macrocall$4", "symbols": ["siteswap_s$ebnf$3$macrocall$2"]},
+    {"name": "siteswap_s$ebnf$3$macrocall$1$macrocall$3", "symbols": ["toss_s"]},
+    {"name": "siteswap_s$ebnf$3$macrocall$1$macrocall$3$ebnf$1$subexpression$1", "symbols": ["siteswap_s$ebnf$3$macrocall$1$macrocall$4", "toss_s"]},
+    {"name": "siteswap_s$ebnf$3$macrocall$1$macrocall$3$ebnf$1", "symbols": ["siteswap_s$ebnf$3$macrocall$1$macrocall$3$ebnf$1$subexpression$1"]},
+    {"name": "siteswap_s$ebnf$3$macrocall$1$macrocall$3$ebnf$1$subexpression$2", "symbols": ["siteswap_s$ebnf$3$macrocall$1$macrocall$4", "toss_s"]},
+    {"name": "siteswap_s$ebnf$3$macrocall$1$macrocall$3$ebnf$1", "symbols": ["siteswap_s$ebnf$3$macrocall$1$macrocall$3$ebnf$1", "siteswap_s$ebnf$3$macrocall$1$macrocall$3$ebnf$1$subexpression$2"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
+    {"name": "siteswap_s$ebnf$3$macrocall$1$macrocall$3", "symbols": [{"literal":"["}, "toss_s", "siteswap_s$ebnf$3$macrocall$1$macrocall$3$ebnf$1", {"literal":"]"}], "postprocess": data => [data[1], ...data[2].map(el => el[1])]},
+    {"name": "siteswap_s$ebnf$3$macrocall$1", "symbols": [{"literal":"("}, "siteswap_s$ebnf$3$macrocall$1$macrocall$1", "siteswap_s$ebnf$3$macrocall$2", "siteswap_s$ebnf$3$macrocall$1$macrocall$3", {"literal":")"}], "postprocess": data => [data[1], data[3]]},
+    {"name": "siteswap_s$ebnf$3", "symbols": ["siteswap_s$ebnf$3$macrocall$1"]},
+    {"name": "siteswap_s$ebnf$3$macrocall$4", "symbols": [{"literal":" "}]},
+    {"name": "siteswap_s$ebnf$3$macrocall$3$macrocall$2", "symbols": ["siteswap_s$ebnf$3$macrocall$4"]},
+    {"name": "siteswap_s$ebnf$3$macrocall$3$macrocall$1", "symbols": ["toss_s"]},
+    {"name": "siteswap_s$ebnf$3$macrocall$3$macrocall$1$ebnf$1$subexpression$1", "symbols": ["siteswap_s$ebnf$3$macrocall$3$macrocall$2", "toss_s"]},
+    {"name": "siteswap_s$ebnf$3$macrocall$3$macrocall$1$ebnf$1", "symbols": ["siteswap_s$ebnf$3$macrocall$3$macrocall$1$ebnf$1$subexpression$1"]},
+    {"name": "siteswap_s$ebnf$3$macrocall$3$macrocall$1$ebnf$1$subexpression$2", "symbols": ["siteswap_s$ebnf$3$macrocall$3$macrocall$2", "toss_s"]},
+    {"name": "siteswap_s$ebnf$3$macrocall$3$macrocall$1$ebnf$1", "symbols": ["siteswap_s$ebnf$3$macrocall$3$macrocall$1$ebnf$1", "siteswap_s$ebnf$3$macrocall$3$macrocall$1$ebnf$1$subexpression$2"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
+    {"name": "siteswap_s$ebnf$3$macrocall$3$macrocall$1", "symbols": [{"literal":"["}, "toss_s", "siteswap_s$ebnf$3$macrocall$3$macrocall$1$ebnf$1", {"literal":"]"}], "postprocess": data => [data[1], ...data[2].map(el => el[1])]},
+    {"name": "siteswap_s$ebnf$3$macrocall$3$macrocall$4", "symbols": ["siteswap_s$ebnf$3$macrocall$4"]},
+    {"name": "siteswap_s$ebnf$3$macrocall$3$macrocall$3", "symbols": ["toss_s"]},
+    {"name": "siteswap_s$ebnf$3$macrocall$3$macrocall$3$ebnf$1$subexpression$1", "symbols": ["siteswap_s$ebnf$3$macrocall$3$macrocall$4", "toss_s"]},
+    {"name": "siteswap_s$ebnf$3$macrocall$3$macrocall$3$ebnf$1", "symbols": ["siteswap_s$ebnf$3$macrocall$3$macrocall$3$ebnf$1$subexpression$1"]},
+    {"name": "siteswap_s$ebnf$3$macrocall$3$macrocall$3$ebnf$1$subexpression$2", "symbols": ["siteswap_s$ebnf$3$macrocall$3$macrocall$4", "toss_s"]},
+    {"name": "siteswap_s$ebnf$3$macrocall$3$macrocall$3$ebnf$1", "symbols": ["siteswap_s$ebnf$3$macrocall$3$macrocall$3$ebnf$1", "siteswap_s$ebnf$3$macrocall$3$macrocall$3$ebnf$1$subexpression$2"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
+    {"name": "siteswap_s$ebnf$3$macrocall$3$macrocall$3", "symbols": [{"literal":"["}, "toss_s", "siteswap_s$ebnf$3$macrocall$3$macrocall$3$ebnf$1", {"literal":"]"}], "postprocess": data => [data[1], ...data[2].map(el => el[1])]},
+    {"name": "siteswap_s$ebnf$3$macrocall$3", "symbols": [{"literal":"("}, "siteswap_s$ebnf$3$macrocall$3$macrocall$1", "siteswap_s$ebnf$3$macrocall$4", "siteswap_s$ebnf$3$macrocall$3$macrocall$3", {"literal":")"}], "postprocess": data => [data[1], data[3]]},
+    {"name": "siteswap_s$ebnf$3", "symbols": ["siteswap_s$ebnf$3", "siteswap_s$ebnf$3$macrocall$3"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
+    {"name": "siteswap_s$ebnf$4", "symbols": [{"literal":"*"}], "postprocess": id},
+    {"name": "siteswap_s$ebnf$4", "symbols": [], "postprocess": function(d) {return null;}},
+    {"name": "siteswap_s", "symbols": ["siteswap_s$ebnf$3", "siteswap_s$ebnf$4"], "postprocess": data => data[1] === null ? data[0] : mirror(data[0])},
+    {"name": "toss_s$ebnf$1", "symbols": ["crossing"], "postprocess": id},
+    {"name": "toss_s$ebnf$1", "symbols": [], "postprocess": function(d) {return null;}},
+    {"name": "toss_s", "symbols": ["digit_s", "toss_s$ebnf$1"], "postprocess": data => ({ value: data[0], crossing: data[1] !== null })},
+    {"name": "digit_s", "symbols": [/[02468]/], "postprocess": data => Number(data[0]) / 2},
+    {"name": "digit_s$ebnf$1", "symbols": [/[02468]/]},
+    {"name": "digit_s$ebnf$1", "symbols": ["digit_s$ebnf$1", /[02468]/], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
+    {"name": "digit_s", "symbols": [/[2468]/, "digit_s$ebnf$1"], "postprocess": data => Number([data[0], ...data[1]].join("")) / 2},
+    {"name": "crossing", "symbols": [{"literal":"x"}], "postprocess": id}
+]
+  , ParserStart: "siteswap"
+};
+
+// Generated automatically by nearley
+// http://github.com/Hardmath123/nearley
+function id$1(x) {return x[0]; }
+
+
+function mirror$1( throws ){
+
+   return throws.concat( throws.map( action => action.map( release => release.map(({ value, crossing }) => ({ value, crossing })) ).reverse() ));
+
+}
+
+function finalise$1( throws ){
+  
+   return throws.map( action => action.map((release, i) => release.map(toss => new Toss(toss.value, i, toss.crossing ? 1 - i : i))) );
+
+}
+
+
+
+
+function numerify( letter ){
+
+  if( letter < "a" )
+    return letter.charCodeAt(0) - "A".charCodeAt(0) + 36;
+  else
+    return letter.charCodeAt(0) - "a".charCodeAt(0) + 10;
+
+}
+
+var grammar$1 = {
+    Lexer: undefined,
+    ParserRules: [
+    {"name": "siteswap", "symbols": ["siteswap_a"], "postprocess": data => finalise$1(data[0])},
+    {"name": "siteswap", "symbols": ["siteswap_s"], "postprocess": data => finalise$1(data[0])},
+    {"name": "siteswap_a$ebnf$1", "symbols": ["action_a"]},
+    {"name": "siteswap_a$ebnf$1", "symbols": ["siteswap_a$ebnf$1", "action_a"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
+    {"name": "siteswap_a", "symbols": ["siteswap_a$ebnf$1"], "postprocess": id$1},
+    {"name": "action_a", "symbols": ["release_a"]},
+    {"name": "release_a", "symbols": ["toss_a"]},
+    {"name": "release_a$ebnf$1", "symbols": ["toss_a"]},
+    {"name": "release_a$ebnf$1", "symbols": ["release_a$ebnf$1", "toss_a"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
+    {"name": "release_a", "symbols": [{"literal":"["}, "toss_a", "release_a$ebnf$1", {"literal":"]"}], "postprocess": data => [data[1], ...data[2]]},
+    {"name": "toss_a", "symbols": ["digit_a"], "postprocess": data => ({ value: data[0] })},
+    {"name": "toss_a", "symbols": ["letter_a"], "postprocess": data => ({ value: data[0] })},
+    {"name": "digit_a", "symbols": [/[0-9]/], "postprocess": data => Number(data[0])},
+    {"name": "letter_a", "symbols": [/[a-zA-Z]/], "postprocess": data => numerify(data[0])},
+    {"name": "siteswap_s$ebnf$1$macrocall$2", "symbols": [{"literal":","}]},
+    {"name": "siteswap_s$ebnf$1$macrocall$1", "symbols": [{"literal":"("}, "release_s", "siteswap_s$ebnf$1$macrocall$2", "release_s", {"literal":")"}], "postprocess": data => [data[1], data[3]]},
+    {"name": "siteswap_s$ebnf$1", "symbols": ["siteswap_s$ebnf$1$macrocall$1"]},
+    {"name": "siteswap_s$ebnf$1$macrocall$4", "symbols": [{"literal":","}]},
+    {"name": "siteswap_s$ebnf$1$macrocall$3", "symbols": [{"literal":"("}, "release_s", "siteswap_s$ebnf$1$macrocall$4", "release_s", {"literal":")"}], "postprocess": data => [data[1], data[3]]},
+    {"name": "siteswap_s$ebnf$1", "symbols": ["siteswap_s$ebnf$1", "siteswap_s$ebnf$1$macrocall$3"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
+    {"name": "siteswap_s$ebnf$2", "symbols": [{"literal":"*"}], "postprocess": id$1},
+    {"name": "siteswap_s$ebnf$2", "symbols": [], "postprocess": function(d) {return null;}},
+    {"name": "siteswap_s", "symbols": ["siteswap_s$ebnf$1", "siteswap_s$ebnf$2"], "postprocess": data => data[1] === null ? data[0] : mirror$1(data[0])},
+    {"name": "siteswap_s$ebnf$3$macrocall$2", "symbols": []},
+    {"name": "siteswap_s$ebnf$3$macrocall$1", "symbols": [{"literal":"("}, "release_s", "siteswap_s$ebnf$3$macrocall$2", "release_s", {"literal":")"}], "postprocess": data => [data[1], data[3]]},
+    {"name": "siteswap_s$ebnf$3", "symbols": ["siteswap_s$ebnf$3$macrocall$1"]},
+    {"name": "siteswap_s$ebnf$3$macrocall$4", "symbols": []},
+    {"name": "siteswap_s$ebnf$3$macrocall$3", "symbols": [{"literal":"("}, "release_s", "siteswap_s$ebnf$3$macrocall$4", "release_s", {"literal":")"}], "postprocess": data => [data[1], data[3]]},
+    {"name": "siteswap_s$ebnf$3", "symbols": ["siteswap_s$ebnf$3", "siteswap_s$ebnf$3$macrocall$3"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
+    {"name": "siteswap_s$ebnf$4", "symbols": [{"literal":"*"}], "postprocess": id$1},
+    {"name": "siteswap_s$ebnf$4", "symbols": [], "postprocess": function(d) {return null;}},
+    {"name": "siteswap_s", "symbols": ["siteswap_s$ebnf$3", "siteswap_s$ebnf$4"], "postprocess": data => data[1] === null ? data[0] : mirror$1(data[0])},
+    {"name": "release_s", "symbols": ["toss_s"]},
+    {"name": "release_s$ebnf$1", "symbols": ["toss_s"]},
+    {"name": "release_s$ebnf$1", "symbols": ["release_s$ebnf$1", "toss_s"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
+    {"name": "release_s", "symbols": [{"literal":"["}, "toss_s", "release_s$ebnf$1", {"literal":"]"}], "postprocess": data => [data[1], ...data[2]]},
+    {"name": "toss_s$ebnf$1", "symbols": ["crossing"], "postprocess": id$1},
+    {"name": "toss_s$ebnf$1", "symbols": [], "postprocess": function(d) {return null;}},
+    {"name": "toss_s", "symbols": ["digit_s", "toss_s$ebnf$1"], "postprocess": data => ({ value: data[0], crossing: data[1] !== null })},
+    {"name": "toss_s$ebnf$2", "symbols": ["crossing"], "postprocess": id$1},
+    {"name": "toss_s$ebnf$2", "symbols": [], "postprocess": function(d) {return null;}},
+    {"name": "toss_s", "symbols": ["letter_s", "toss_s$ebnf$2"], "postprocess": data => ({ value: data[0], crossing: data[1] !== null })},
+    {"name": "digit_s", "symbols": [/[02468]/], "postprocess": data => Number(data[0]) / 2},
+    {"name": "letter_s", "symbols": [/[acegikmoqsuwyACEGIKMOQSUWY]/], "postprocess": data => numerify(data[0]) / 2},
+    {"name": "crossing", "symbols": [{"literal":"x"}], "postprocess": id$1}
+]
+  , ParserStart: "siteswap"
+};
+
+const grammars = {
+   standard: grammar,
+   compressed: grammar$1
+};
+
+function parse( string, notation ){
+
+   const grammar$$1 = grammars[notation];
+   if( !grammar$$1 )
+      throw new Error("Unsupported notation.");
+
+   const parser = new Parser(grammar$$1.ParserRules, grammar$$1.parserStart);
+   const results = parser.feed(string).results;
+   if( !results.length )
+      throw new Error("Invalid syntax.");
+   return results[0];
+
+}
+
+function validateThrows( throws ){
+
+	if( !Array.isArray(throws) || !throws.length )
+		throw new Error("Invalid input.");
+
+	for( const action of throws ){
+		if( !Array.isArray(action) || action.length !== throws[0].length )
+			throw new Error("Invalid throw sequence.");
+
+		if( action.some(release => !Array.isArray(release) || !release.every(toss => toss instanceof Toss)) )
+			throw new Error("Invalid throw sequence.");
+	}
+
+}
+
+// Generated automatically by nearley
+// http://github.com/Hardmath123/nearley
+function id$2(x) {return x[0]; }
+var grammar$2 = {
+    Lexer: undefined,
+    ParserRules: [
+    {"name": "siteswap", "symbols": ["siteswap_a"], "postprocess": id$2},
+    {"name": "siteswap", "symbols": ["siteswap_s"], "postprocess": id$2},
+    {"name": "siteswap_a$macrocall$2", "symbols": ["action_a"]},
+    {"name": "siteswap_a$macrocall$1$ebnf$1", "symbols": []},
+    {"name": "siteswap_a$macrocall$1$ebnf$1$subexpression$1", "symbols": [{"literal":","}, "siteswap_a$macrocall$2"]},
+    {"name": "siteswap_a$macrocall$1$ebnf$1", "symbols": ["siteswap_a$macrocall$1$ebnf$1", "siteswap_a$macrocall$1$ebnf$1$subexpression$1"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
+    {"name": "siteswap_a$macrocall$1", "symbols": [{"literal":"["}, "siteswap_a$macrocall$2", "siteswap_a$macrocall$1$ebnf$1", {"literal":"]"}], "postprocess": data => [data[1][0], ...data[2].map(m => m[1][0])]},
+    {"name": "siteswap_a", "symbols": ["siteswap_a$macrocall$1"], "postprocess": data => data[0].join(",")},
+    {"name": "siteswap_s$macrocall$2", "symbols": ["action_s"]},
+    {"name": "siteswap_s$macrocall$1$ebnf$1", "symbols": []},
+    {"name": "siteswap_s$macrocall$1$ebnf$1$subexpression$1", "symbols": [{"literal":","}, "siteswap_s$macrocall$2"]},
+    {"name": "siteswap_s$macrocall$1$ebnf$1", "symbols": ["siteswap_s$macrocall$1$ebnf$1", "siteswap_s$macrocall$1$ebnf$1$subexpression$1"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
+    {"name": "siteswap_s$macrocall$1", "symbols": [{"literal":"["}, "siteswap_s$macrocall$2", "siteswap_s$macrocall$1$ebnf$1", {"literal":"]"}], "postprocess": data => [data[1][0], ...data[2].map(m => m[1][0])]},
+    {"name": "siteswap_s", "symbols": ["siteswap_s$macrocall$1"], "postprocess": data => data[0].join("")},
+    {"name": "action_a", "symbols": [{"literal":"["}, "release_a", {"literal":"]"}], "postprocess": data => data[1]},
+    {"name": "action_s", "symbols": [{"literal":"["}, "release_s", {"literal":","}, "release_s", {"literal":"]"}], "postprocess": data => "(" + data[1] + "," + data[3] + ")"},
+    {"name": "release_a$macrocall$2", "symbols": ["toss_a"]},
+    {"name": "release_a$macrocall$1$ebnf$1", "symbols": []},
+    {"name": "release_a$macrocall$1$ebnf$1$subexpression$1", "symbols": [{"literal":","}, "release_a$macrocall$2"]},
+    {"name": "release_a$macrocall$1$ebnf$1", "symbols": ["release_a$macrocall$1$ebnf$1", "release_a$macrocall$1$ebnf$1$subexpression$1"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
+    {"name": "release_a$macrocall$1", "symbols": [{"literal":"["}, "release_a$macrocall$2", "release_a$macrocall$1$ebnf$1", {"literal":"]"}], "postprocess": data => [data[1][0], ...data[2].map(m => m[1][0])]},
+    {"name": "release_a", "symbols": ["release_a$macrocall$1"], "postprocess": data => data[0].length > 1 ? "[" + data[0].join(",") + "]" : data[0][0]},
+    {"name": "release_s$macrocall$2", "symbols": ["toss_s"]},
+    {"name": "release_s$macrocall$1$ebnf$1", "symbols": []},
+    {"name": "release_s$macrocall$1$ebnf$1$subexpression$1", "symbols": [{"literal":","}, "release_s$macrocall$2"]},
+    {"name": "release_s$macrocall$1$ebnf$1", "symbols": ["release_s$macrocall$1$ebnf$1", "release_s$macrocall$1$ebnf$1$subexpression$1"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
+    {"name": "release_s$macrocall$1", "symbols": [{"literal":"["}, "release_s$macrocall$2", "release_s$macrocall$1$ebnf$1", {"literal":"]"}], "postprocess": data => [data[1][0], ...data[2].map(m => m[1][0])]},
+    {"name": "release_s", "symbols": ["release_s$macrocall$1"], "postprocess": data => data[0].length > 1 ? "[" + data[0].join(",") + "]" : data[0][0]},
+    {"name": "toss_a$string$1", "symbols": [{"literal":"{"}, {"literal":"\""}, {"literal":"v"}, {"literal":"a"}, {"literal":"l"}, {"literal":"u"}, {"literal":"e"}, {"literal":"\""}, {"literal":":"}], "postprocess": function joiner(d) {return d.join('');}},
+    {"name": "toss_a$string$2", "symbols": [{"literal":","}, {"literal":"\""}, {"literal":"h"}, {"literal":"a"}, {"literal":"n"}, {"literal":"d"}, {"literal":"F"}, {"literal":"r"}, {"literal":"o"}, {"literal":"m"}, {"literal":"\""}, {"literal":":"}], "postprocess": function joiner(d) {return d.join('');}},
+    {"name": "toss_a$string$3", "symbols": [{"literal":","}, {"literal":"\""}, {"literal":"h"}, {"literal":"a"}, {"literal":"n"}, {"literal":"d"}, {"literal":"T"}, {"literal":"o"}, {"literal":"\""}, {"literal":":"}], "postprocess": function joiner(d) {return d.join('');}},
+    {"name": "toss_a", "symbols": ["toss_a$string$1", "value", "toss_a$string$2", "hand_a", "toss_a$string$3", "hand_a", {"literal":"}"}], "postprocess": data => data[1]},
+    {"name": "toss_s$string$1", "symbols": [{"literal":"{"}, {"literal":"\""}, {"literal":"v"}, {"literal":"a"}, {"literal":"l"}, {"literal":"u"}, {"literal":"e"}, {"literal":"\""}, {"literal":":"}], "postprocess": function joiner(d) {return d.join('');}},
+    {"name": "toss_s$string$2", "symbols": [{"literal":","}, {"literal":"\""}, {"literal":"h"}, {"literal":"a"}, {"literal":"n"}, {"literal":"d"}, {"literal":"F"}, {"literal":"r"}, {"literal":"o"}, {"literal":"m"}, {"literal":"\""}, {"literal":":"}], "postprocess": function joiner(d) {return d.join('');}},
+    {"name": "toss_s$string$3", "symbols": [{"literal":","}, {"literal":"\""}, {"literal":"h"}, {"literal":"a"}, {"literal":"n"}, {"literal":"d"}, {"literal":"T"}, {"literal":"o"}, {"literal":"\""}, {"literal":":"}], "postprocess": function joiner(d) {return d.join('');}},
+    {"name": "toss_s", "symbols": ["toss_s$string$1", "value", "toss_s$string$2", "hand_s", "toss_s$string$3", "hand_s", {"literal":"}"}], "postprocess": data => (data[1] * 2) + (data[3] !== data[5] ? "x" : "")},
+    {"name": "hand_a", "symbols": [/[0]/], "postprocess": id$2},
+    {"name": "hand_a$string$1", "symbols": [{"literal":"n"}, {"literal":"u"}, {"literal":"l"}, {"literal":"l"}], "postprocess": function joiner(d) {return d.join('');}},
+    {"name": "hand_a", "symbols": ["hand_a$string$1"], "postprocess": id$2},
+    {"name": "hand_s", "symbols": [/[0-1]/], "postprocess": id$2},
+    {"name": "hand_s$string$1", "symbols": [{"literal":"n"}, {"literal":"u"}, {"literal":"l"}, {"literal":"l"}], "postprocess": function joiner(d) {return d.join('');}},
+    {"name": "hand_s", "symbols": ["hand_s$string$1"], "postprocess": id$2},
+    {"name": "value", "symbols": [/[0-9]/], "postprocess": data => Number(data[0])},
+    {"name": "value$ebnf$1", "symbols": [/[0-9]/]},
+    {"name": "value$ebnf$1", "symbols": ["value$ebnf$1", /[0-9]/], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
+    {"name": "value", "symbols": [/[1-9]/, "value$ebnf$1"], "postprocess": data => Number(data[0] + data[1].join(""))}
+]
+  , ParserStart: "siteswap"
+};
+
+// Generated automatically by nearley
+// http://github.com/Hardmath123/nearley
+function id$3(x) {return x[0]; }
+
+
+function alphify( digit ){
+  
+  if( digit < 10 )
+    return digit;
+
+  if( digit < 36 )
+    return String.fromCharCode("a".charCodeAt(0) + digit - 10);
+  
+  if( digit < 62 )
+    return String.fromCharCode("A".charCodeAt(0) + digit - 36);
+  
+}
+
+var grammar$3 = {
+    Lexer: undefined,
+    ParserRules: [
+    {"name": "siteswap", "symbols": ["siteswap_a"], "postprocess": id$3},
+    {"name": "siteswap", "symbols": ["siteswap_s"], "postprocess": id$3},
+    {"name": "siteswap_a$macrocall$2", "symbols": ["action_a"]},
+    {"name": "siteswap_a$macrocall$1$ebnf$1", "symbols": []},
+    {"name": "siteswap_a$macrocall$1$ebnf$1$subexpression$1", "symbols": [{"literal":","}, "siteswap_a$macrocall$2"]},
+    {"name": "siteswap_a$macrocall$1$ebnf$1", "symbols": ["siteswap_a$macrocall$1$ebnf$1", "siteswap_a$macrocall$1$ebnf$1$subexpression$1"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
+    {"name": "siteswap_a$macrocall$1", "symbols": [{"literal":"["}, "siteswap_a$macrocall$2", "siteswap_a$macrocall$1$ebnf$1", {"literal":"]"}], "postprocess": data => [data[1][0], ...data[2].map(m => m[1][0])]},
+    {"name": "siteswap_a", "symbols": ["siteswap_a$macrocall$1"], "postprocess": data => data[0].join("")},
+    {"name": "siteswap_s$macrocall$2", "symbols": ["action_s"]},
+    {"name": "siteswap_s$macrocall$1$ebnf$1", "symbols": []},
+    {"name": "siteswap_s$macrocall$1$ebnf$1$subexpression$1", "symbols": [{"literal":","}, "siteswap_s$macrocall$2"]},
+    {"name": "siteswap_s$macrocall$1$ebnf$1", "symbols": ["siteswap_s$macrocall$1$ebnf$1", "siteswap_s$macrocall$1$ebnf$1$subexpression$1"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
+    {"name": "siteswap_s$macrocall$1", "symbols": [{"literal":"["}, "siteswap_s$macrocall$2", "siteswap_s$macrocall$1$ebnf$1", {"literal":"]"}], "postprocess": data => [data[1][0], ...data[2].map(m => m[1][0])]},
+    {"name": "siteswap_s", "symbols": ["siteswap_s$macrocall$1"], "postprocess": data => data[0].join("")},
+    {"name": "action_a", "symbols": [{"literal":"["}, "release_a", {"literal":"]"}], "postprocess": data => data[1]},
+    {"name": "action_s", "symbols": [{"literal":"["}, "release_s", {"literal":","}, "release_s", {"literal":"]"}], "postprocess": data => "(" + data[1] + "," + data[3] + ")"},
+    {"name": "release_a$macrocall$2", "symbols": ["toss_a"]},
+    {"name": "release_a$macrocall$1$ebnf$1", "symbols": []},
+    {"name": "release_a$macrocall$1$ebnf$1$subexpression$1", "symbols": [{"literal":","}, "release_a$macrocall$2"]},
+    {"name": "release_a$macrocall$1$ebnf$1", "symbols": ["release_a$macrocall$1$ebnf$1", "release_a$macrocall$1$ebnf$1$subexpression$1"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
+    {"name": "release_a$macrocall$1", "symbols": [{"literal":"["}, "release_a$macrocall$2", "release_a$macrocall$1$ebnf$1", {"literal":"]"}], "postprocess": data => [data[1][0], ...data[2].map(m => m[1][0])]},
+    {"name": "release_a", "symbols": ["release_a$macrocall$1"], "postprocess": data => data[0].length > 1 ? "[" + data[0].join("") + "]" : data[0][0]},
+    {"name": "release_s$macrocall$2", "symbols": ["toss_s"]},
+    {"name": "release_s$macrocall$1$ebnf$1", "symbols": []},
+    {"name": "release_s$macrocall$1$ebnf$1$subexpression$1", "symbols": [{"literal":","}, "release_s$macrocall$2"]},
+    {"name": "release_s$macrocall$1$ebnf$1", "symbols": ["release_s$macrocall$1$ebnf$1", "release_s$macrocall$1$ebnf$1$subexpression$1"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
+    {"name": "release_s$macrocall$1", "symbols": [{"literal":"["}, "release_s$macrocall$2", "release_s$macrocall$1$ebnf$1", {"literal":"]"}], "postprocess": data => [data[1][0], ...data[2].map(m => m[1][0])]},
+    {"name": "release_s", "symbols": ["release_s$macrocall$1"], "postprocess": data => data[0].length > 1 ? "[" + data[0].join("") + "]" : data[0][0]},
+    {"name": "toss_a$string$1", "symbols": [{"literal":"{"}, {"literal":"\""}, {"literal":"v"}, {"literal":"a"}, {"literal":"l"}, {"literal":"u"}, {"literal":"e"}, {"literal":"\""}, {"literal":":"}], "postprocess": function joiner(d) {return d.join('');}},
+    {"name": "toss_a$string$2", "symbols": [{"literal":","}, {"literal":"\""}, {"literal":"h"}, {"literal":"a"}, {"literal":"n"}, {"literal":"d"}, {"literal":"F"}, {"literal":"r"}, {"literal":"o"}, {"literal":"m"}, {"literal":"\""}, {"literal":":"}], "postprocess": function joiner(d) {return d.join('');}},
+    {"name": "toss_a$string$3", "symbols": [{"literal":","}, {"literal":"\""}, {"literal":"h"}, {"literal":"a"}, {"literal":"n"}, {"literal":"d"}, {"literal":"T"}, {"literal":"o"}, {"literal":"\""}, {"literal":":"}], "postprocess": function joiner(d) {return d.join('');}},
+    {"name": "toss_a", "symbols": ["toss_a$string$1", "value", "toss_a$string$2", "hand_a", "toss_a$string$3", "hand_a", {"literal":"}"}], "postprocess": data => alphify(data[1])},
+    {"name": "toss_s$string$1", "symbols": [{"literal":"{"}, {"literal":"\""}, {"literal":"v"}, {"literal":"a"}, {"literal":"l"}, {"literal":"u"}, {"literal":"e"}, {"literal":"\""}, {"literal":":"}], "postprocess": function joiner(d) {return d.join('');}},
+    {"name": "toss_s$string$2", "symbols": [{"literal":","}, {"literal":"\""}, {"literal":"h"}, {"literal":"a"}, {"literal":"n"}, {"literal":"d"}, {"literal":"F"}, {"literal":"r"}, {"literal":"o"}, {"literal":"m"}, {"literal":"\""}, {"literal":":"}], "postprocess": function joiner(d) {return d.join('');}},
+    {"name": "toss_s$string$3", "symbols": [{"literal":","}, {"literal":"\""}, {"literal":"h"}, {"literal":"a"}, {"literal":"n"}, {"literal":"d"}, {"literal":"T"}, {"literal":"o"}, {"literal":"\""}, {"literal":":"}], "postprocess": function joiner(d) {return d.join('');}},
+    {"name": "toss_s", "symbols": ["toss_s$string$1", "value", "toss_s$string$2", "hand_s", "toss_s$string$3", "hand_s", {"literal":"}"}], "postprocess": data => alphify(data[1] * 2) + (data[3] !== data[5] ? "x" : "")},
+    {"name": "hand_a", "symbols": [/[0]/], "postprocess": id$3},
+    {"name": "hand_a$string$1", "symbols": [{"literal":"n"}, {"literal":"u"}, {"literal":"l"}, {"literal":"l"}], "postprocess": function joiner(d) {return d.join('');}},
+    {"name": "hand_a", "symbols": ["hand_a$string$1"], "postprocess": id$3},
+    {"name": "hand_s", "symbols": [/[0-1]/], "postprocess": id$3},
+    {"name": "hand_s$string$1", "symbols": [{"literal":"n"}, {"literal":"u"}, {"literal":"l"}, {"literal":"l"}], "postprocess": function joiner(d) {return d.join('');}},
+    {"name": "hand_s", "symbols": ["hand_s$string$1"], "postprocess": id$3},
+    {"name": "value", "symbols": [/[0-9]/], "postprocess": data => Number(data[0])},
+    {"name": "value$ebnf$1", "symbols": [/[0-9]/]},
+    {"name": "value$ebnf$1", "symbols": ["value$ebnf$1", /[0-9]/], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
+    {"name": "value", "symbols": [/[1-9]/, "value$ebnf$1"], "postprocess": data => Number(data[0] + data[1].join(""))}
+]
+  , ParserStart: "siteswap"
+};
+
+const grammars$1 = {
+   standard: grammar$2,
+   compressed: grammar$3
+};
+
+function toString( notation = this.notation ){
+
+   if( !this.valid )
+      throw new Error("Can't call `.toString` on an invalid siteswap.")
+
+   const grammar = grammars$1[notation];
+   if( !grammar )
+      throw new Error("Unsupported notation.");
+
+   const parser = new Parser(grammar.ParserRules, grammar.parserStart);
+   const string = JSON.stringify(this.throws);
+   const results = parser.feed(string).results;
+   return results[0];
+
+}
+
+// A juggle is either a siteswap or a transition between states. It 
+// validates the throw and hand sequences' structure. If legacy mode,
+// it assigns default hands and mirrors the throw sequence (after
+// structure validation).
+
+// Transitions don't do much at the moment (they only appear in
+// `.composition`), their existence will be justified once the
+// graph and generation come to life. They are also expected to
+// be used for connecting siteswaps (going from one to another).
+
+class Juggle {
+   
+   constructor( input, notation = "compressed" ){
+
+      this.input = input;
+      this.notation = notation;
+
+      try{
+
+         const throws = typeof input === "string" ? this.parse(input, notation) : input;
+         this.validateThrows(throws);
+
+         const values = throws.reduce((result, action) => Array.prototype.concat.apply(result, action.map(release => release.map(toss => toss.value))), []);
+         
+         // Assign properties.
+         this.throws        = throws;
+         this.valid         = true;
+         this.degree        = throws[0].length;
+         this.props         = values.reduce((sum, value) => sum + value, 0) / throws.length;
+         this.multiplex     = throws.reduce( (max, action) => Math.max.apply(null, [max, ...action.map(release => release.length)]), 0 );
+         this.greatestValue = Math.max.apply(null, values);
+
+      }
+      catch(e){
+
+         this.valid = false;
+         this.message = e.message;
+
+      }
+
+   }
+
+}
+
+Juggle.prototype.parse = parse;
+Juggle.prototype.validateThrows = validateThrows;
+Juggle.prototype.toString = toString;
+
 class Transition extends Juggle {
 
-	constructor( input, stateFrom, stateTo, legacy = true ){
+	constructor( input, notation, stateFrom, stateTo ){
 
-	  super(input, legacy);
+	  super(input, notation);
 
 	  if( !this.valid )
 	     return this;
@@ -963,7 +1190,7 @@ class Transition extends Juggle {
 
 }
 
-function decompose( states, throws, hands ){
+function decompose( states, throws, notation ){
 
 	const composition = [];
 
@@ -977,9 +1204,9 @@ function decompose( states, throws, hands ){
 				}
 
 				if( from > last ){
-					composition.push( new Transition({ hands: hands, siteswap: throws.slice(last, from)}, states[last], states[from]) );
+					composition.push( new Transition(throws.slice(last, from), notation, states[last], states[from]) );
 				}
-				composition.push( new Siteswap({ hands: hands, siteswap: throws.slice(from, to) }) );
+				composition.push( new Siteswap(throws.slice(from, to), notation) );
 				last = to;
 				break;
 			}
@@ -988,7 +1215,7 @@ function decompose( states, throws, hands ){
 	}
 
 	if( last !== states.length ){
-		composition.push( new Transition({ hands: hands, siteswap: throws.slice(last)}) );
+		composition.push( new Transition(throws.slice(last), notation) );
 	}
 
 	return composition;
@@ -1008,32 +1235,37 @@ function log(){
       return;
    }
 
+   if( this.degree > 2 ){
+      console.log("No supported notation supports more than two hands.");
+      return;
+   }
 
+   const hands = ["l", "r"];
    const lines = [];
 
-   lines.push("siteswap\n " + this.string);
+   lines.push("siteswap\n " + this.toString());
    lines.push("props\n " + this.props);
-   lines.push("period\n " + this.period);
    lines.push("hands\n " + this.degree);
-   lines.push("multiplex\n " + this.multiplex);
+   lines.push("period\n " + this.period);
    lines.push("full period\n " + this.fullPeriod);
+   lines.push("multiplex\n " + this.multiplex);
    lines.push("prime\n " + this.prime);
    lines.push("ground state\n " + this.groundState);
    
    lines.push("throw sequence");
-   this.throws.forEach( (action, i) => action.forEach((release, j) => lines.push(" " + (i + 1) + (this.degree === 1 ? "" : ", hand " + this.hands[(i + j) % this.degree]) + ": [" + release.map( toss => toss.value + (toss.value === 0 || this.degree === 1 ? "" : this.hands[toss.handTo]) ).join(",") + "]")) );
+   this.throws.forEach( (action, i) => action.forEach((release, j) => lines.push(" " + (i + 1) + (this.degree === 1 ? "" : "-" + hands[j]) + ": [" + release.map( toss => toss.value + (toss.value === 0 || this.degree === 1 ? "" : hands[toss.handTo]) ).join(",") + "]")) );
 
    lines.push("states");
-   this.states.forEach( (state, i) => state.schedule.forEach((handState, j) => lines.push(" " + (i + 1) + (this.degree === 1 ? "" : ", hand " + this.hands[j]) + ": [" + handState.join(",") + "]")) );
+   this.states.forEach( (state, i) => state.schedule.forEach((handState, j) => lines.push(" " + (i + 1) + (this.degree === 1 ? "" : "-" + hands[j]) + ": [" + handState.join(",") + "]")) );
 
    lines.push("strict states");
-   this.strictStates.forEach( (state, i) => state.schedule.forEach((handState, j) => lines.push(" " + (i + 1) + (this.degree === 1 ? "" : ", hand " + this.hands[j]) + ": [" + handState.map(balls => "[" + (!balls.length ? "-" : balls.join(",")) + "]").join(",") + "]" )) );
+   this.strictStates.forEach( (state, i) => state.schedule.forEach((handState, j) => lines.push(" " + (i + 1) + (this.degree === 1 ? "" : "-" + hands[j]) + ": [" + handState.map(balls => "[" + (!balls.length ? "-" : balls.join(",")) + "]").join(",") + "]" )) );
 
    lines.push("orbits");
-   this.orbits.forEach( (orbit, i) => lines.push(" " + (i + 1) + ": " + orbit.string) );
+   this.orbits.forEach( (orbit, i) => lines.push(" " + (i + 1) + ": " + orbit.toString()) );
 
    lines.push("composition");
-   this.composition.forEach( (prime, i) => lines.push( (prime instanceof Siteswap ? " siteswap: " : " transition: ") + prime.string) );
+   this.composition.forEach( (prime, i) => lines.push( (prime instanceof Siteswap ? " siteswap: " : " transition: ") + prime.toString()) );
 
    lines.push(" ");
 
@@ -1043,16 +1275,16 @@ function log(){
 
 class Siteswap extends Juggle {
    
-   constructor( input, legacy = true ){
+   constructor( input, notation ){
 
-      super(input, legacy);
+      super(input, notation);
 
       if( !this.valid )
          return this;
 
       try{
 
-         this.validate(this.throws, this.hands);
+         this.validate(this.throws);
          this.valid = true;
 
       }
@@ -1083,10 +1315,10 @@ class Siteswap extends Juggle {
       //  this.multiplex
       //  this.string
 
-      this.states        = this.greatestValue === 0 ? [] : this.schedulise( this.throws, false );
-      this.strictStates  = this.greatestValue === 0 ? [] : this.schedulise( this.throws, true );
-      this.orbits        = this.orbitise(this.throws, this.hands);
-      this.composition   = this.decompose(this.states, this.throws, this.hands);
+      this.states        = this.schedulise( this.throws, false );
+      this.strictStates  = this.schedulise( this.throws, true );
+      this.orbits        = this.orbitise(this.throws, this.notation);
+      this.composition   = this.decompose(this.states, this.throws, this.notation);
       
       this.period        = this.states.length;
       this.fullPeriod    = this.strictStates.length;

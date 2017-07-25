@@ -1,5 +1,4 @@
 
-import { Juggle }       from "./Juggle";
 import { validate }     from "./Siteswap.validate";
 import { truncate }     from "./Siteswap.truncate";
 import { schedulise }   from "./Siteswap.schedulise";
@@ -7,20 +6,21 @@ import { orbitise }     from "./Siteswap.orbitise";
 import { decompose }    from "./Siteswap.decompose";
 import { excitify }     from "./Siteswap.excitify";
 import { log }          from "./Siteswap.log";
+import { Juggle }       from "./Juggle";
 
 
 class Siteswap extends Juggle {
    
-   constructor( input, legacy = true ){
+   constructor( input, notation ){
 
-      super(input, legacy);
+      super(input, notation);
 
       if( !this.valid )
          return this;
 
       try{
 
-         this.validate(this.throws, this.hands);
+         this.validate(this.throws);
          this.valid = true;
 
       }
@@ -51,10 +51,10 @@ class Siteswap extends Juggle {
       //  this.multiplex
       //  this.string
 
-      this.states        = this.greatestValue === 0 ? [] : this.schedulise( this.throws, false );
-      this.strictStates  = this.greatestValue === 0 ? [] : this.schedulise( this.throws, true );
-      this.orbits        = this.orbitise(this.throws, this.hands);
-      this.composition   = this.decompose(this.states, this.throws, this.hands);
+      this.states        = this.schedulise( this.throws, false );
+      this.strictStates  = this.schedulise( this.throws, true );
+      this.orbits        = this.orbitise(this.throws, this.notation);
+      this.composition   = this.decompose(this.states, this.throws, this.notation);
       
       this.period        = this.states.length;
       this.fullPeriod    = this.strictStates.length;

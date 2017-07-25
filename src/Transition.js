@@ -4,9 +4,9 @@ import { Juggle } from "./Juggle";
 
 class Transition extends Juggle {
 
-	constructor( input, stateFrom, stateTo, legacy = true ){
+	constructor( input, notation, stateFrom, stateTo ){
 
-	  super(input, legacy);
+	  super(input, notation);
 
 	  if( !this.valid )
 	     return this;

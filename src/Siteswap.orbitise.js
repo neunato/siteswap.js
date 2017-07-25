@@ -22,7 +22,7 @@ function mark( orbit, map, throws, i, j ){
 }
 
 
-function orbitise( throws, hands ){
+function orbitise( throws, notation ){
 
 	const orbits = [];
 
@@ -50,7 +50,7 @@ function orbitise( throws, hands ){
 			orbit.push( action.map( (release, j) => map[i][j] === orbit ? release : [new Toss(0, null, null)] ) );
 	}
 
-	return orbits.map( orbit => new Siteswap({ hands, siteswap: orbit }) );
+	return orbits.map( orbit => new Siteswap(orbit, notation) );
 
 }
 

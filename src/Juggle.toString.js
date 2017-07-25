@@ -1,7 +1,7 @@
 
 import { Parser }                from "nearley";
-import { grammar as standard }   from "./notations/standard/parse";
-import { grammar as compressed } from "./notations/compressed/parse";
+import { grammar as standard }   from "./notations/standard/unparse";
+import { grammar as compressed } from "./notations/compressed/unparse";
 
 
 const grammars = {
@@ -9,19 +9,21 @@ const grammars = {
    compressed
 };
 
-function parse( string, notation ){
+function toString( notation = this.notation ){
+
+   if( !this.valid )
+      throw new Error("Can't call `.toString` on an invalid siteswap.")
 
    const grammar = grammars[notation];
    if( !grammar )
       throw new Error("Unsupported notation.");
 
    const parser = new Parser(grammar.ParserRules, grammar.parserStart);
+   const string = JSON.stringify(this.throws);
    const results = parser.feed(string).results;
-   if( !results.length )
-      throw new Error("Invalid syntax.");
    return results[0];
 
 }
 
 
-export { parse };
+export { toString };
