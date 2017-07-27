@@ -20,8 +20,10 @@ new Siteswap("[43]14")
 new Siteswap("(4 2x)*")
 new Siteswap("(2x,4x")    // Invalid.
 new Siteswap("(4,2x)")    // Invalid.
-
 ```
+
+The following properties are exposed:
+
 
 __`.valid`__ &raquo; boolean showing if siteswap is valid.
 
@@ -29,13 +31,13 @@ __`.message`__ &raquo; if invalid, this tells you why.
 
 __`.input`__ &raquo; constructor input string.
 
-__`.notation`__ &raquo; notation used for parsing.
+__`.notation`__ &raquo; notation used to parse.
 
-__`.degree`__ &raquo; number of hands used each beat. 
+__`.degree`__ &raquo; number of throws per beat. 
 
 __`.props`__ &raquo; number of props the pattern requires.
 
-__`.multiplex`__ &raquo; greatest number of balls thrown together, from a single hand.
+__`.multiplex`__ &raquo; greatest number of balls thrown together from a single hand.
 
 __`.greatestValue`__ &raquo; greatest throw value.
 

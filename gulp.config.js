@@ -6,7 +6,8 @@ const uglify  = require("uglify-js");
 const umd     = require("umd");
 const nearley = require("nearley");
 
-const version = require("./package.json").version;
+const package = require("./package.json");
+
 
 const t = {
   rollup:   (contents, file) => rollup.rollup({ entry: file.path, plugins: [resolve()] })
@@ -18,7 +19,7 @@ const t = {
                                   if( error )
                                     throw new Error(error);
                                   return code; },
-  babel:    (contents, file) => babel.transform(contents, { presets: ["env"] }).code,
+  babel:    (contents, file) => babel.transform(contents, package.babel).code,
   umd:      (contents, file) => umd("Siteswap", contents, { commonJS: true }),
 
   nearley:  function(contents, file){
@@ -42,14 +43,14 @@ const configuration = {
     "build:js": {
       src: "src/entry.js",
       watch: "src/**/*.js",
-      rename: "dist/siteswap-" + version + ".js",
+      rename: "dist/siteswap-" + package.version + ".js",
       transforms: [t.rollup, t.umd]
     },
 
     "build:js:min": {
       src: "src/entry.js",
       watch: "src/**/*.js",
-      rename: "dist/siteswap-" + version + ".min.js",
+      rename: "dist/siteswap-" + package.version + ".min.js",
       transforms: [t.rollup, t.babel, t.uglify, t.umd]
     },
 
