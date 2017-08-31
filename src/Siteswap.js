@@ -11,9 +11,9 @@ import { Juggle }       from "./Juggle";
 
 class Siteswap extends Juggle {
    
-   constructor( input, notation ){
+   constructor( input, notations ){
 
-      super(input, notation);
+      super(input, notations);
 
       if( !this.valid )
          return this;
@@ -27,12 +27,13 @@ class Siteswap extends Juggle {
       catch(e){
 
          // Unset properties set in `Juggle`.
-         const keys = Object.keys(this).filter(key => key !== "input");
+         const keys = Object.keys(this);
          for( const key of keys )
             delete this[key];
 
          this.valid = false;
-         this.message = e.message;
+         this.notation = notations;
+         this.error = e.message;
          return this;
          
       }
@@ -51,8 +52,8 @@ class Siteswap extends Juggle {
       //  this.multiplex
       //  this.string
 
-      this.states        = this.schedulise( this.throws, false );
-      this.strictStates  = this.schedulise( this.throws, true );
+      this.states        = this.schedulise(this.throws, false);
+      this.strictStates  = this.schedulise(this.throws, true);
       this.orbits        = this.orbitise(this.throws, this.notation);
       this.composition   = this.decompose(this.states, this.throws, this.notation);
       

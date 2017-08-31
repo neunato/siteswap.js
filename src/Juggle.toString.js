@@ -1,29 +1,30 @@
 
-import { Parser }                from "nearley";
-import { grammar as standard }   from "./notations/standard/unparse";
-import { grammar as compressed } from "./notations/compressed/unparse";
+import { notations as declarations } from "./Juggle.notations";
 
-
-const grammars = {
-   standard,
-   compressed
-};
 
 function toString( notation = this.notation ){
 
    if( !this.valid )
-      throw new Error("Can't call `.toString` on an invalid siteswap.")
+      throw new Error("Invalid siteswap.");
 
-   const grammar = grammars[notation];
-   if( !grammar )
+   if( !declarations[notation] )
       throw new Error("Unsupported notation.");
 
-   const parser = new Parser(grammar.ParserRules, grammar.parserStart);
-   const string = JSON.stringify(this.throws);
-   const results = parser.feed(string).results;
-   return results[0];
+   // Check if they're compatible.
+   if( this.notation !== notation ){
+      const limitsFrom = declarations[this.notation].limits || {};
+      const limitsTo = declarations[notation].limits || {};
+      const properties = Object.keys(limitsTo);
+
+      if( properties.some(property => limitsTo[property].min > limitsFrom[property].max || limitsTo[property].max < limitsFrom[property].min) )
+         throw new Error("Incompatible notations.");
+
+      if( properties.some(property => this[property] > limitsTo[property].max || this[property] < limitsTo[property].min) )
+         throw new Error("This siteswap can't be converted to the target notation.");
+   }
+
+   return declarations[notation].unparse(this.throws);
 
 }
-
 
 export { toString };

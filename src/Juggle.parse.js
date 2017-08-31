@@ -1,27 +1,53 @@
 
-import { Parser }                from "nearley";
-import { grammar as standard }   from "./notations/standard/parse";
-import { grammar as compressed } from "./notations/compressed/parse";
+import { notations as declarations } from "./Juggle.notations";
 
 
-const grammars = {
-   standard,
-   compressed
-};
+function parse( string, notations ){
 
-function parse( string, notation ){
+   // Flatten composite notations ("standard" to "standard:async" and "standard:sync").
+   notations = notations.reduce( (r, n) => r.concat(Array.isArray(declarations[n]) ? declarations[n] : n), [] );
 
-   const grammar = grammars[notation];
-   if( !grammar )
+   if( notations.some(notation => typeof notation !== "string" || !declarations[notation]) )
       throw new Error("Unsupported notation.");
 
-   const parser = new Parser(grammar.ParserRules, grammar.parserStart);
-   const results = parser.feed(string).results;
-   if( !results.length )
-      throw new Error("Invalid syntax.");
-   return results[0];
+   // The throws can be passed directly to avoid parsing siteswaps that derived
+   // from others by manipulating their .throws.
+   if( typeof string === "object" ){
+      if( !validOutput(string) || notations.length > 1 )
+         throw new Error("Invalid input.");
+      return { notation: notations[0], throws: string };
+   }
+
+   // When passed a string, try parsing with passed notations, returning the 
+   // first successful result.
+   for( const notation of notations ){
+      const [throws] = declarations[notation].parse(string);
+      if( throws && validOutput(throws) )
+         return { notation, throws };
+   }
+
+   throw new Error("Invalid syntax.");
+
+}
+
+
+function validOutput( throws ){
+   
+   if( !Array.isArray(throws) || !throws.length )
+      return false;
+
+   for( const action of throws ){
+      if( !Array.isArray(action) || action.length !== throws[0].length )
+         return false;
+
+      if( action.some(release => !Array.isArray(release) || !release.every(({ value, handFrom, handTo }) => value !== undefined && handFrom !== undefined && handTo !== undefined)) )
+         return false;
+   }
+
+   return true;
 
 }
 
 
 export { parse };
+

@@ -49,8 +49,8 @@ const configuration = {
   tasks: {
 
     "nearley": {
-      src: "src/notations/*/*.ne",
-      dest: "src/notations/",
+      src: "src/notations/parser/grammar.ne",
+      dest: "src/notations/parser/",
       rename: { extname: ".js" },
       transforms: [t.nearley]
     },
@@ -74,7 +74,7 @@ const configuration = {
 
 
     "build": {
-      watch: "src/notations/**/*.ne",
+      watch: "src/notations/parser/grammar.ne",
       series: ["nearley", "bundle"]
     },
 

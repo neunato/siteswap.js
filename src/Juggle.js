@@ -1,46 +1,38 @@
 
 import { parse }          from "./Juggle.parse";
-import { validateThrows } from "./Juggle.validateThrows";
 import { toString }      from "./Juggle.toString";
 
 
 // A juggle is either a siteswap or a transition between states. It 
-// validates the throw and hand sequences' structure. If legacy mode,
-// it assigns default hands and mirrors the throw sequence (after
-// structure validation).
+// validates the throw and hand sequences' structure.
 
 // Transitions don't do much at the moment (they only appear in
-// `.composition`), their existence will be justified once the
-// graph and generation come to life. They are also expected to
-// be used for connecting siteswaps (going from one to another).
+// `.composition`), their existence will be justified with graph
+// and siteswap generation. Also transitioning between siteswaps.
 
 class Juggle {
    
-   constructor( input, notation = "compressed" ){
+   constructor( string, notations = "compressed" ){
 
-      this.input = input;
-      this.notation = notation;
+      try {
 
-      try{
+         const { throws, notation } = this.parse(string, [].concat(notations));
+         const values = throws.reduce((result, action) => result.concat( ...action.map(release => release.map(({value}) => value)) ), []);
 
-         const throws = typeof input === "string" ? this.parse(input, notation) : input;
-         this.validateThrows(throws);
-
-         const values = throws.reduce((result, action) => Array.prototype.concat.apply(result, action.map(release => release.map(toss => toss.value))), []);
-         
-         // Assign properties.
-         this.throws        = throws;
+         this.notation      = notation;
          this.valid         = true;
+         this.throws        = throws;
          this.degree        = throws[0].length;
          this.props         = values.reduce((sum, value) => sum + value, 0) / throws.length;
-         this.multiplex     = throws.reduce( (max, action) => Math.max.apply(null, [max, ...action.map(release => release.length)]), 0 );
-         this.greatestValue = Math.max.apply(null, values);
+         this.multiplex     = throws.reduce((max, action) => Math.max( max, ...action.map(({length}) => length) ), 0);
+         this.greatestValue = Math.max(...values);
 
       }
       catch(e){
 
          this.valid = false;
-         this.message = e.message;
+         this.notation = notations;
+         this.error = e.message;
 
       }
 
@@ -49,7 +41,6 @@ class Juggle {
 }
 
 Juggle.prototype.parse = parse;
-Juggle.prototype.validateThrows = validateThrows;
 Juggle.prototype.toString = toString;
 
 export { Juggle };

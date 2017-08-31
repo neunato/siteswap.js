@@ -1,5 +1,7 @@
 
-import { Siteswap } from "./Siteswap";
+import { notations }  from "./Juggle.notations";
+import { alphabetic } from "./alphabetic";
+
 
 
 function log(){
@@ -9,42 +11,107 @@ function log(){
       return;
    }
 
+   const lines = [];
+   let hands;
+
+   lines.push(`siteswap\n ${this.toString().replace(/\n/g, "\n ")}`);
+   lines.push(`notation\n ${this.notation}`);
+   lines.push(`degree\n ${this.degree}`);
+   lines.push(`props\n ${this.props}`);
+   lines.push(`period\n ${this.period}`);
+   lines.push(`full period\n ${this.fullPeriod}`);
+   lines.push(`multiplex\n ${this.multiplex}`);
+   lines.push(`prime\n ${this.prime}`);
+   lines.push(`ground state\n ${this.groundState}`);
+   
+
    if( this.degree > 2 ){
-      console.log("No supported notation supports more than two hands.");
-      return;
+      hands = alphabetic(this.degree);
+
+      lines.push("hand labels");
+      const oldLabels = notations[this.notation].hands(this.degree);
+      const paddings = [];
+      paddings.push( this.degree.toString().length + 1 );
+      paddings.push( Math.max(...oldLabels.map(({length}) => length)) );
+      paddings.push( Math.max(...hands.map(({length}) => length)) );
+      for( let i = 0; i < this.degree; i++ ){
+         const num   = pad(i + 1, paddings[0]);
+         const hand1 = pad(hands[i], paddings[2]);
+         const hand2 = pad(oldLabels[i], paddings[1]);
+         lines.push( `${num}| ${hand1}${this.notation !== "multihand" ? ` (${hand2})` : ""}` );
+      }
+
    }
 
-   const hands = ["l", "r"];
-   const lines = [];
+   lines.push("throw sequence"); {
+      const matrix = [];
+      for( const [i, action] of this.throws.entries() ){
+         const releases = action.map( (release) => {
+            let string;
+            if( this.degree <= 2 )
+               string = release.map( ({value, handFrom, handTo}) => `${value}${handFrom !== handTo ? "x" : ""}` ).join(",");
+            else
+               string = release.map( ({value, handFrom, handTo}) => `${value}${hands[handTo]}` ).join(",");
+            return release.length === 1 ? string : `[${string}]`;
+         } );
+         matrix.push( [`${i + 1}|`, ...releases] );
+      }
 
-   lines.push("siteswap\n " + this.toString());
-   lines.push("props\n " + this.props);
-   lines.push("hands\n " + this.degree);
-   lines.push("period\n " + this.period);
-   lines.push("full period\n " + this.fullPeriod);
-   lines.push("multiplex\n " + this.multiplex);
-   lines.push("prime\n " + this.prime);
-   lines.push("ground state\n " + this.groundState);
+      const paddings = [];
+      for( let i = 0; i < matrix[0].length; i++ ){
+         paddings.push( Math.max(...matrix.map(row => row[i].length + 1)) );
+      }
+
+      lines.push( ...matrix.map(row => row.map((string, i) => pad(string, paddings[i])).join("")) );
+   }
    
-   lines.push("throw sequence");
-   this.throws.forEach( (action, i) => action.forEach((release, j) => lines.push(" " + (i + 1) + (this.degree === 1 ? "" : "-" + hands[j]) + ": [" + release.map( toss => toss.value + (toss.value === 0 || this.degree === 1 ? "" : hands[toss.handTo]) ).join(",") + "]")) );
+   lines.push("states"); {
+      const padding = this.period.toString().length + 1;
+      for( const [i, state] of this.states.entries() ){
+         for( const [j, handState] of state.schedule.entries() )
+            lines.push( `${pad(j ? " " : (i + 1), padding)}| [${handState.join(",")}]` );
+      }
+   }
 
-   lines.push("states");
-   this.states.forEach( (state, i) => state.schedule.forEach((handState, j) => lines.push(" " + (i + 1) + (this.degree === 1 ? "" : "-" + hands[j]) + ": [" + handState.join(",") + "]")) );
+   lines.push("strict states"); {
+      const padding = this.fullPeriod.toString().length + 1;
+      for( const [i, state] of this.strictStates.entries() ){
+         for( const [j, handState] of state.schedule.entries() )
+            lines.push( `${pad(j ? "" : (i + 1), padding)}| [${handState.map(balls => `[${balls.length ? balls.join(",") : "-"}]`).join(",")}]` );
+      }
+   }
 
-   lines.push("strict states");
-   this.strictStates.forEach( (state, i) => state.schedule.forEach((handState, j) => lines.push(" " + (i + 1) + (this.degree === 1 ? "" : "-" + hands[j]) + ": [" + handState.map(balls => "[" + (!balls.length ? "-" : balls.join(",")) + "]").join(",") + "]" )) );
+   lines.push("orbits"); {
+      const padding = this.orbits.length.toString().length + 1;
+      for( const [i, orbit] of this.orbits.entries() ){
+         lines.push( ...orbit.toString().split("\n").map((row, j) => `${pad(j ? "" : (i + 1), padding)}| ${row}`) );
+      }
+   }
 
-   lines.push("orbits");
-   this.orbits.forEach( (orbit, i) => lines.push(" " + (i + 1) + ": " + orbit.toString()) );
-
-   lines.push("composition");
-   this.composition.forEach( (prime, i) => lines.push( (prime instanceof Siteswap ? " siteswap: " : " transition: ") + prime.toString()) );
+   lines.push("composition"); {
+      const padding = this.composition.length.toString().length + 1;
+      for( const [i, prime] of this.composition.entries() ){
+         lines.push( ...prime.toString().split("\n").map((row, j) => `${pad(j ? "" : (i + 1), padding)}| ${row}`) );
+      }
+   }
 
    lines.push(" ");
 
    console.log( lines.join("\n") );
 
 }
+
+
+function pad( string, length ){
+   
+   if( typeof string !== "string" )
+      string = string.toString();
+
+   length++;
+   return string.length >= length ? string : `${Array(length - string.length).join(" ")}${string}`;
+
+}
+
+
 
 export { log };

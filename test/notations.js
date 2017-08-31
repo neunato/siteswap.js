@@ -1,13 +1,18 @@
 
-import { deepStrictEqual } from "assert";
-import { Siteswap } from "../src/Siteswap";
-import { tests as standard } from "./notations/standard";
-import { tests as compressed } from "./notations/compressed";
+import assert                        from "assert";
+import { Siteswap }                  from "../src/Siteswap";
+
+import { tests as standard_async }   from "./notations/standard_async";
+import { tests as standard_sync }    from "./notations/standard_sync";
+import { tests as compressed_async } from "./notations/compressed_async";
+import { tests as compressed_sync }  from "./notations/compressed_sync";
 
 
 const tests = {
-   standard,
-   compressed
+   "standard:async": standard_async,
+   "standard:sync": standard_sync,
+   "compressed:async": compressed_async,
+   "compressed:sync": compressed_sync
 };
 
 
@@ -16,49 +21,54 @@ describe("Notations", function(){
    const notations = Object.keys(tests);
    for( const notation of notations ){
 
-      it(notation, function(){
+      const strings = Object.keys(tests[notation]);
 
-         const strings = Object.keys(tests[notation]);
+      describe(notation, function(){
 
-         for( const string of strings ){
+         it("parsing", function(){
+            for( const string of strings ){
+               const siteswap = new Siteswap(string, notation);
+               assertSiteswap(string, siteswap, tests[notation][string]);
+            }
+         });
 
-            const siteswap = new Siteswap(string, notation);
+         it("unparsing", function(){
+            for( const string of strings ){
 
-            // Parsing.
-            assertSiteswap(siteswap, tests[notation][string]);
+               const siteswap = new Siteswap(string, notation);
+               if( !siteswap.valid ){
+                  assert.throws( () => siteswap.toString(notation), /Invalid siteswap\./ );
+               }
+               else{
+                  const unparsed = siteswap.toString(notation);
+                  const { throws } = new Siteswap(unparsed, notation);
+                  assertSiteswap(string, siteswap, { throws });
+               }
+            }
+         });
 
-            if( !siteswap.valid )
-               continue;
-
-            // Unparsing.
-            const unparsed = siteswap.toString(notation);
-            const reversed = new Siteswap(unparsed, notation);
-            assertSiteswap(siteswap, reversed);
-
-         }
-         
       });
+
    }
 
 });
 
 
-function assertSiteswap( siteswap, properties ){
+function assertSiteswap( string, siteswap, properties ){
 
-   // `.input` is ignored because it depends on the user.
    // `.orbits` and `composition` are ignored because they contain siteswaps 
    // and `assert.deepStrictEqual()` compares `.toString()`s, which are 
    // implemented by the notation we're testing itself.
 
    // One solution would be to call `assertSiteswap()` for each juggle in
    // orbits/composition, but that would break on circular references unless
-   // some sort of a cache is used. Since `.input` can be an array, I can't
-   // make a cache map unless `.toString()` is used, or there was a way to 
-   // test equality of two siteswaps (where 531 === 315).
+   // some sort of a cache is used.
 
-   const keys = Object.keys(properties).filter(key => !["input", "orbits", "composition"].includes(key));
+   // Either way, this will have to wait until unit tests are introduced.
+
+   const keys = Object.keys(properties).filter(key => key !== "orbits" && key !== "composition");
    for( const key of keys )
-      deepStrictEqual(siteswap[key], properties[key], `new Siteswap("${siteswap.input}", "${siteswap.notation}").${key} !== ${properties[key]}`);
+      assert.deepStrictEqual(siteswap[key], properties[key], `new Siteswap("${string}", "${siteswap.notation}").${key} === ${properties[key]}`);
 
 }
 

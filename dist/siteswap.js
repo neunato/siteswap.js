@@ -725,444 +725,405 @@ function id(x) {return x[0]; }
 
 function mirror( throws ){
 
-   return throws.concat( throws.map( action => action.map( release => release.map(({ value, crossing }) => ({ value, crossing })) ).reverse() ));
+    return throws.concat( throws.map( action => action.map( release => release.map(({ value, cross }) => ({ value, cross })) ).reverse() ));
 
 }
 
-function finalise( throws ){
-  
-   return throws.map( action => action.map((release, i) => release.map(toss => new Toss(toss.value, i, toss.crossing ? 1 - i : i))) );
+function numerify( letter ){
+
+   if( letter < "a" )
+      return letter.charCodeAt(0) - "A".charCodeAt(0) + 36;
+   else
+      return letter.charCodeAt(0) - "a".charCodeAt(0) + 10;
+
+}
+
+function finaliseAsync( throws ){
+
+    return throws.map( ([release]) => [release.map( ({value}) => ({ value, handFrom: 0, handTo: 0 }) )] );
+
+}
+
+function finaliseSync( throws ){
+
+    return throws.map( action => action.map((release, i) => release.map( ({value, cross}) => ({ value: value / 2, handFrom: i, handTo: cross ? 1 - i : i }) )) );
 
 }
 
 var grammar = {
     Lexer: undefined,
     ParserRules: [
-    {"name": "siteswap", "symbols": ["siteswap_a"], "postprocess": data => finalise(data[0])},
-    {"name": "siteswap", "symbols": ["siteswap_s"], "postprocess": data => finalise(data[0])},
-    {"name": "siteswap_a$macrocall$2$macrocall$2", "symbols": [{"literal":","}]},
-    {"name": "siteswap_a$macrocall$2$macrocall$1$macrocall$2", "symbols": ["siteswap_a$macrocall$2$macrocall$2"]},
-    {"name": "siteswap_a$macrocall$2$macrocall$1$macrocall$1", "symbols": ["toss_a"]},
-    {"name": "siteswap_a$macrocall$2$macrocall$1$macrocall$1$ebnf$1$subexpression$1", "symbols": ["siteswap_a$macrocall$2$macrocall$1$macrocall$2", "toss_a"]},
-    {"name": "siteswap_a$macrocall$2$macrocall$1$macrocall$1$ebnf$1", "symbols": ["siteswap_a$macrocall$2$macrocall$1$macrocall$1$ebnf$1$subexpression$1"]},
-    {"name": "siteswap_a$macrocall$2$macrocall$1$macrocall$1$ebnf$1$subexpression$2", "symbols": ["siteswap_a$macrocall$2$macrocall$1$macrocall$2", "toss_a"]},
-    {"name": "siteswap_a$macrocall$2$macrocall$1$macrocall$1$ebnf$1", "symbols": ["siteswap_a$macrocall$2$macrocall$1$macrocall$1$ebnf$1", "siteswap_a$macrocall$2$macrocall$1$macrocall$1$ebnf$1$subexpression$2"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
-    {"name": "siteswap_a$macrocall$2$macrocall$1$macrocall$1", "symbols": [{"literal":"["}, "toss_a", "siteswap_a$macrocall$2$macrocall$1$macrocall$1$ebnf$1", {"literal":"]"}], "postprocess": data => [data[1], ...data[2].map(el => el[1])]},
-    {"name": "siteswap_a$macrocall$2$macrocall$1", "symbols": ["siteswap_a$macrocall$2$macrocall$1$macrocall$1"]},
-    {"name": "siteswap_a$macrocall$2", "symbols": ["siteswap_a$macrocall$2$macrocall$1"]},
-    {"name": "siteswap_a$macrocall$3", "symbols": [{"literal":","}]},
-    {"name": "siteswap_a$macrocall$1$ebnf$1", "symbols": []},
-    {"name": "siteswap_a$macrocall$1$ebnf$1$subexpression$1", "symbols": ["siteswap_a$macrocall$3", "siteswap_a$macrocall$2"]},
-    {"name": "siteswap_a$macrocall$1$ebnf$1", "symbols": ["siteswap_a$macrocall$1$ebnf$1", "siteswap_a$macrocall$1$ebnf$1$subexpression$1"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
-    {"name": "siteswap_a$macrocall$1", "symbols": ["siteswap_a$macrocall$2", "siteswap_a$macrocall$1$ebnf$1"], "postprocess": data => [data[0][0], ...data[1].map(m => m[1][0])]},
-    {"name": "siteswap_a", "symbols": ["siteswap_a$macrocall$1"], "postprocess": id},
-    {"name": "siteswap_a$macrocall$5$macrocall$2", "symbols": [{"literal":" "}]},
-    {"name": "siteswap_a$macrocall$5$macrocall$1$macrocall$2", "symbols": ["siteswap_a$macrocall$5$macrocall$2"]},
-    {"name": "siteswap_a$macrocall$5$macrocall$1$macrocall$1", "symbols": ["toss_a"]},
-    {"name": "siteswap_a$macrocall$5$macrocall$1$macrocall$1$ebnf$1$subexpression$1", "symbols": ["siteswap_a$macrocall$5$macrocall$1$macrocall$2", "toss_a"]},
-    {"name": "siteswap_a$macrocall$5$macrocall$1$macrocall$1$ebnf$1", "symbols": ["siteswap_a$macrocall$5$macrocall$1$macrocall$1$ebnf$1$subexpression$1"]},
-    {"name": "siteswap_a$macrocall$5$macrocall$1$macrocall$1$ebnf$1$subexpression$2", "symbols": ["siteswap_a$macrocall$5$macrocall$1$macrocall$2", "toss_a"]},
-    {"name": "siteswap_a$macrocall$5$macrocall$1$macrocall$1$ebnf$1", "symbols": ["siteswap_a$macrocall$5$macrocall$1$macrocall$1$ebnf$1", "siteswap_a$macrocall$5$macrocall$1$macrocall$1$ebnf$1$subexpression$2"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
-    {"name": "siteswap_a$macrocall$5$macrocall$1$macrocall$1", "symbols": [{"literal":"["}, "toss_a", "siteswap_a$macrocall$5$macrocall$1$macrocall$1$ebnf$1", {"literal":"]"}], "postprocess": data => [data[1], ...data[2].map(el => el[1])]},
-    {"name": "siteswap_a$macrocall$5$macrocall$1", "symbols": ["siteswap_a$macrocall$5$macrocall$1$macrocall$1"]},
-    {"name": "siteswap_a$macrocall$5", "symbols": ["siteswap_a$macrocall$5$macrocall$1"]},
-    {"name": "siteswap_a$macrocall$6", "symbols": [{"literal":" "}]},
-    {"name": "siteswap_a$macrocall$4$ebnf$1", "symbols": []},
-    {"name": "siteswap_a$macrocall$4$ebnf$1$subexpression$1", "symbols": ["siteswap_a$macrocall$6", "siteswap_a$macrocall$5"]},
-    {"name": "siteswap_a$macrocall$4$ebnf$1", "symbols": ["siteswap_a$macrocall$4$ebnf$1", "siteswap_a$macrocall$4$ebnf$1$subexpression$1"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
-    {"name": "siteswap_a$macrocall$4", "symbols": ["siteswap_a$macrocall$5", "siteswap_a$macrocall$4$ebnf$1"], "postprocess": data => [data[0][0], ...data[1].map(m => m[1][0])]},
-    {"name": "siteswap_a", "symbols": ["siteswap_a$macrocall$4"], "postprocess": id},
-    {"name": "toss_a", "symbols": ["digit_a"], "postprocess": data => ({ value: data[0] })},
-    {"name": "digit_a", "symbols": [/[0-9]/], "postprocess": data => Number(data[0])},
-    {"name": "digit_a$ebnf$1", "symbols": [/[0-9]/]},
-    {"name": "digit_a$ebnf$1", "symbols": ["digit_a$ebnf$1", /[0-9]/], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
-    {"name": "digit_a", "symbols": [/[1-9]/, "digit_a$ebnf$1"], "postprocess": data => Number([data[0], ...data[1]].join(""))},
-    {"name": "siteswap_s$ebnf$1$macrocall$2", "symbols": [{"literal":","}]},
-    {"name": "siteswap_s$ebnf$1$macrocall$1$macrocall$2", "symbols": ["siteswap_s$ebnf$1$macrocall$2"]},
-    {"name": "siteswap_s$ebnf$1$macrocall$1$macrocall$1", "symbols": ["toss_s"]},
-    {"name": "siteswap_s$ebnf$1$macrocall$1$macrocall$1$ebnf$1$subexpression$1", "symbols": ["siteswap_s$ebnf$1$macrocall$1$macrocall$2", "toss_s"]},
-    {"name": "siteswap_s$ebnf$1$macrocall$1$macrocall$1$ebnf$1", "symbols": ["siteswap_s$ebnf$1$macrocall$1$macrocall$1$ebnf$1$subexpression$1"]},
-    {"name": "siteswap_s$ebnf$1$macrocall$1$macrocall$1$ebnf$1$subexpression$2", "symbols": ["siteswap_s$ebnf$1$macrocall$1$macrocall$2", "toss_s"]},
-    {"name": "siteswap_s$ebnf$1$macrocall$1$macrocall$1$ebnf$1", "symbols": ["siteswap_s$ebnf$1$macrocall$1$macrocall$1$ebnf$1", "siteswap_s$ebnf$1$macrocall$1$macrocall$1$ebnf$1$subexpression$2"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
-    {"name": "siteswap_s$ebnf$1$macrocall$1$macrocall$1", "symbols": [{"literal":"["}, "toss_s", "siteswap_s$ebnf$1$macrocall$1$macrocall$1$ebnf$1", {"literal":"]"}], "postprocess": data => [data[1], ...data[2].map(el => el[1])]},
-    {"name": "siteswap_s$ebnf$1$macrocall$1$macrocall$4", "symbols": ["siteswap_s$ebnf$1$macrocall$2"]},
-    {"name": "siteswap_s$ebnf$1$macrocall$1$macrocall$3", "symbols": ["toss_s"]},
-    {"name": "siteswap_s$ebnf$1$macrocall$1$macrocall$3$ebnf$1$subexpression$1", "symbols": ["siteswap_s$ebnf$1$macrocall$1$macrocall$4", "toss_s"]},
-    {"name": "siteswap_s$ebnf$1$macrocall$1$macrocall$3$ebnf$1", "symbols": ["siteswap_s$ebnf$1$macrocall$1$macrocall$3$ebnf$1$subexpression$1"]},
-    {"name": "siteswap_s$ebnf$1$macrocall$1$macrocall$3$ebnf$1$subexpression$2", "symbols": ["siteswap_s$ebnf$1$macrocall$1$macrocall$4", "toss_s"]},
-    {"name": "siteswap_s$ebnf$1$macrocall$1$macrocall$3$ebnf$1", "symbols": ["siteswap_s$ebnf$1$macrocall$1$macrocall$3$ebnf$1", "siteswap_s$ebnf$1$macrocall$1$macrocall$3$ebnf$1$subexpression$2"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
-    {"name": "siteswap_s$ebnf$1$macrocall$1$macrocall$3", "symbols": [{"literal":"["}, "toss_s", "siteswap_s$ebnf$1$macrocall$1$macrocall$3$ebnf$1", {"literal":"]"}], "postprocess": data => [data[1], ...data[2].map(el => el[1])]},
-    {"name": "siteswap_s$ebnf$1$macrocall$1", "symbols": [{"literal":"("}, "siteswap_s$ebnf$1$macrocall$1$macrocall$1", "siteswap_s$ebnf$1$macrocall$2", "siteswap_s$ebnf$1$macrocall$1$macrocall$3", {"literal":")"}], "postprocess": data => [data[1], data[3]]},
-    {"name": "siteswap_s$ebnf$1", "symbols": ["siteswap_s$ebnf$1$macrocall$1"]},
-    {"name": "siteswap_s$ebnf$1$macrocall$4", "symbols": [{"literal":","}]},
-    {"name": "siteswap_s$ebnf$1$macrocall$3$macrocall$2", "symbols": ["siteswap_s$ebnf$1$macrocall$4"]},
-    {"name": "siteswap_s$ebnf$1$macrocall$3$macrocall$1", "symbols": ["toss_s"]},
-    {"name": "siteswap_s$ebnf$1$macrocall$3$macrocall$1$ebnf$1$subexpression$1", "symbols": ["siteswap_s$ebnf$1$macrocall$3$macrocall$2", "toss_s"]},
-    {"name": "siteswap_s$ebnf$1$macrocall$3$macrocall$1$ebnf$1", "symbols": ["siteswap_s$ebnf$1$macrocall$3$macrocall$1$ebnf$1$subexpression$1"]},
-    {"name": "siteswap_s$ebnf$1$macrocall$3$macrocall$1$ebnf$1$subexpression$2", "symbols": ["siteswap_s$ebnf$1$macrocall$3$macrocall$2", "toss_s"]},
-    {"name": "siteswap_s$ebnf$1$macrocall$3$macrocall$1$ebnf$1", "symbols": ["siteswap_s$ebnf$1$macrocall$3$macrocall$1$ebnf$1", "siteswap_s$ebnf$1$macrocall$3$macrocall$1$ebnf$1$subexpression$2"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
-    {"name": "siteswap_s$ebnf$1$macrocall$3$macrocall$1", "symbols": [{"literal":"["}, "toss_s", "siteswap_s$ebnf$1$macrocall$3$macrocall$1$ebnf$1", {"literal":"]"}], "postprocess": data => [data[1], ...data[2].map(el => el[1])]},
-    {"name": "siteswap_s$ebnf$1$macrocall$3$macrocall$4", "symbols": ["siteswap_s$ebnf$1$macrocall$4"]},
-    {"name": "siteswap_s$ebnf$1$macrocall$3$macrocall$3", "symbols": ["toss_s"]},
-    {"name": "siteswap_s$ebnf$1$macrocall$3$macrocall$3$ebnf$1$subexpression$1", "symbols": ["siteswap_s$ebnf$1$macrocall$3$macrocall$4", "toss_s"]},
-    {"name": "siteswap_s$ebnf$1$macrocall$3$macrocall$3$ebnf$1", "symbols": ["siteswap_s$ebnf$1$macrocall$3$macrocall$3$ebnf$1$subexpression$1"]},
-    {"name": "siteswap_s$ebnf$1$macrocall$3$macrocall$3$ebnf$1$subexpression$2", "symbols": ["siteswap_s$ebnf$1$macrocall$3$macrocall$4", "toss_s"]},
-    {"name": "siteswap_s$ebnf$1$macrocall$3$macrocall$3$ebnf$1", "symbols": ["siteswap_s$ebnf$1$macrocall$3$macrocall$3$ebnf$1", "siteswap_s$ebnf$1$macrocall$3$macrocall$3$ebnf$1$subexpression$2"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
-    {"name": "siteswap_s$ebnf$1$macrocall$3$macrocall$3", "symbols": [{"literal":"["}, "toss_s", "siteswap_s$ebnf$1$macrocall$3$macrocall$3$ebnf$1", {"literal":"]"}], "postprocess": data => [data[1], ...data[2].map(el => el[1])]},
-    {"name": "siteswap_s$ebnf$1$macrocall$3", "symbols": [{"literal":"("}, "siteswap_s$ebnf$1$macrocall$3$macrocall$1", "siteswap_s$ebnf$1$macrocall$4", "siteswap_s$ebnf$1$macrocall$3$macrocall$3", {"literal":")"}], "postprocess": data => [data[1], data[3]]},
-    {"name": "siteswap_s$ebnf$1", "symbols": ["siteswap_s$ebnf$1", "siteswap_s$ebnf$1$macrocall$3"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
-    {"name": "siteswap_s$ebnf$2", "symbols": [{"literal":"*"}], "postprocess": id},
-    {"name": "siteswap_s$ebnf$2", "symbols": [], "postprocess": function(d) {return null;}},
-    {"name": "siteswap_s", "symbols": ["siteswap_s$ebnf$1", "siteswap_s$ebnf$2"], "postprocess": data => data[1] === null ? data[0] : mirror(data[0])},
-    {"name": "siteswap_s$ebnf$3$macrocall$2", "symbols": [{"literal":" "}]},
-    {"name": "siteswap_s$ebnf$3$macrocall$1$macrocall$2", "symbols": ["siteswap_s$ebnf$3$macrocall$2"]},
-    {"name": "siteswap_s$ebnf$3$macrocall$1$macrocall$1", "symbols": ["toss_s"]},
-    {"name": "siteswap_s$ebnf$3$macrocall$1$macrocall$1$ebnf$1$subexpression$1", "symbols": ["siteswap_s$ebnf$3$macrocall$1$macrocall$2", "toss_s"]},
-    {"name": "siteswap_s$ebnf$3$macrocall$1$macrocall$1$ebnf$1", "symbols": ["siteswap_s$ebnf$3$macrocall$1$macrocall$1$ebnf$1$subexpression$1"]},
-    {"name": "siteswap_s$ebnf$3$macrocall$1$macrocall$1$ebnf$1$subexpression$2", "symbols": ["siteswap_s$ebnf$3$macrocall$1$macrocall$2", "toss_s"]},
-    {"name": "siteswap_s$ebnf$3$macrocall$1$macrocall$1$ebnf$1", "symbols": ["siteswap_s$ebnf$3$macrocall$1$macrocall$1$ebnf$1", "siteswap_s$ebnf$3$macrocall$1$macrocall$1$ebnf$1$subexpression$2"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
-    {"name": "siteswap_s$ebnf$3$macrocall$1$macrocall$1", "symbols": [{"literal":"["}, "toss_s", "siteswap_s$ebnf$3$macrocall$1$macrocall$1$ebnf$1", {"literal":"]"}], "postprocess": data => [data[1], ...data[2].map(el => el[1])]},
-    {"name": "siteswap_s$ebnf$3$macrocall$1$macrocall$4", "symbols": ["siteswap_s$ebnf$3$macrocall$2"]},
-    {"name": "siteswap_s$ebnf$3$macrocall$1$macrocall$3", "symbols": ["toss_s"]},
-    {"name": "siteswap_s$ebnf$3$macrocall$1$macrocall$3$ebnf$1$subexpression$1", "symbols": ["siteswap_s$ebnf$3$macrocall$1$macrocall$4", "toss_s"]},
-    {"name": "siteswap_s$ebnf$3$macrocall$1$macrocall$3$ebnf$1", "symbols": ["siteswap_s$ebnf$3$macrocall$1$macrocall$3$ebnf$1$subexpression$1"]},
-    {"name": "siteswap_s$ebnf$3$macrocall$1$macrocall$3$ebnf$1$subexpression$2", "symbols": ["siteswap_s$ebnf$3$macrocall$1$macrocall$4", "toss_s"]},
-    {"name": "siteswap_s$ebnf$3$macrocall$1$macrocall$3$ebnf$1", "symbols": ["siteswap_s$ebnf$3$macrocall$1$macrocall$3$ebnf$1", "siteswap_s$ebnf$3$macrocall$1$macrocall$3$ebnf$1$subexpression$2"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
-    {"name": "siteswap_s$ebnf$3$macrocall$1$macrocall$3", "symbols": [{"literal":"["}, "toss_s", "siteswap_s$ebnf$3$macrocall$1$macrocall$3$ebnf$1", {"literal":"]"}], "postprocess": data => [data[1], ...data[2].map(el => el[1])]},
-    {"name": "siteswap_s$ebnf$3$macrocall$1", "symbols": [{"literal":"("}, "siteswap_s$ebnf$3$macrocall$1$macrocall$1", "siteswap_s$ebnf$3$macrocall$2", "siteswap_s$ebnf$3$macrocall$1$macrocall$3", {"literal":")"}], "postprocess": data => [data[1], data[3]]},
-    {"name": "siteswap_s$ebnf$3", "symbols": ["siteswap_s$ebnf$3$macrocall$1"]},
-    {"name": "siteswap_s$ebnf$3$macrocall$4", "symbols": [{"literal":" "}]},
-    {"name": "siteswap_s$ebnf$3$macrocall$3$macrocall$2", "symbols": ["siteswap_s$ebnf$3$macrocall$4"]},
-    {"name": "siteswap_s$ebnf$3$macrocall$3$macrocall$1", "symbols": ["toss_s"]},
-    {"name": "siteswap_s$ebnf$3$macrocall$3$macrocall$1$ebnf$1$subexpression$1", "symbols": ["siteswap_s$ebnf$3$macrocall$3$macrocall$2", "toss_s"]},
-    {"name": "siteswap_s$ebnf$3$macrocall$3$macrocall$1$ebnf$1", "symbols": ["siteswap_s$ebnf$3$macrocall$3$macrocall$1$ebnf$1$subexpression$1"]},
-    {"name": "siteswap_s$ebnf$3$macrocall$3$macrocall$1$ebnf$1$subexpression$2", "symbols": ["siteswap_s$ebnf$3$macrocall$3$macrocall$2", "toss_s"]},
-    {"name": "siteswap_s$ebnf$3$macrocall$3$macrocall$1$ebnf$1", "symbols": ["siteswap_s$ebnf$3$macrocall$3$macrocall$1$ebnf$1", "siteswap_s$ebnf$3$macrocall$3$macrocall$1$ebnf$1$subexpression$2"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
-    {"name": "siteswap_s$ebnf$3$macrocall$3$macrocall$1", "symbols": [{"literal":"["}, "toss_s", "siteswap_s$ebnf$3$macrocall$3$macrocall$1$ebnf$1", {"literal":"]"}], "postprocess": data => [data[1], ...data[2].map(el => el[1])]},
-    {"name": "siteswap_s$ebnf$3$macrocall$3$macrocall$4", "symbols": ["siteswap_s$ebnf$3$macrocall$4"]},
-    {"name": "siteswap_s$ebnf$3$macrocall$3$macrocall$3", "symbols": ["toss_s"]},
-    {"name": "siteswap_s$ebnf$3$macrocall$3$macrocall$3$ebnf$1$subexpression$1", "symbols": ["siteswap_s$ebnf$3$macrocall$3$macrocall$4", "toss_s"]},
-    {"name": "siteswap_s$ebnf$3$macrocall$3$macrocall$3$ebnf$1", "symbols": ["siteswap_s$ebnf$3$macrocall$3$macrocall$3$ebnf$1$subexpression$1"]},
-    {"name": "siteswap_s$ebnf$3$macrocall$3$macrocall$3$ebnf$1$subexpression$2", "symbols": ["siteswap_s$ebnf$3$macrocall$3$macrocall$4", "toss_s"]},
-    {"name": "siteswap_s$ebnf$3$macrocall$3$macrocall$3$ebnf$1", "symbols": ["siteswap_s$ebnf$3$macrocall$3$macrocall$3$ebnf$1", "siteswap_s$ebnf$3$macrocall$3$macrocall$3$ebnf$1$subexpression$2"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
-    {"name": "siteswap_s$ebnf$3$macrocall$3$macrocall$3", "symbols": [{"literal":"["}, "toss_s", "siteswap_s$ebnf$3$macrocall$3$macrocall$3$ebnf$1", {"literal":"]"}], "postprocess": data => [data[1], ...data[2].map(el => el[1])]},
-    {"name": "siteswap_s$ebnf$3$macrocall$3", "symbols": [{"literal":"("}, "siteswap_s$ebnf$3$macrocall$3$macrocall$1", "siteswap_s$ebnf$3$macrocall$4", "siteswap_s$ebnf$3$macrocall$3$macrocall$3", {"literal":")"}], "postprocess": data => [data[1], data[3]]},
-    {"name": "siteswap_s$ebnf$3", "symbols": ["siteswap_s$ebnf$3", "siteswap_s$ebnf$3$macrocall$3"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
-    {"name": "siteswap_s$ebnf$4", "symbols": [{"literal":"*"}], "postprocess": id},
-    {"name": "siteswap_s$ebnf$4", "symbols": [], "postprocess": function(d) {return null;}},
-    {"name": "siteswap_s", "symbols": ["siteswap_s$ebnf$3", "siteswap_s$ebnf$4"], "postprocess": data => data[1] === null ? data[0] : mirror(data[0])},
-    {"name": "toss_s$ebnf$1", "symbols": ["crossing"], "postprocess": id},
-    {"name": "toss_s$ebnf$1", "symbols": [], "postprocess": function(d) {return null;}},
-    {"name": "toss_s", "symbols": ["digit_s", "toss_s$ebnf$1"], "postprocess": data => ({ value: data[0], crossing: data[1] !== null })},
-    {"name": "digit_s", "symbols": [/[02468]/], "postprocess": data => Number(data[0]) / 2},
-    {"name": "digit_s$ebnf$1", "symbols": [/[02468]/]},
-    {"name": "digit_s$ebnf$1", "symbols": ["digit_s$ebnf$1", /[02468]/], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
-    {"name": "digit_s", "symbols": [/[2468]/, "digit_s$ebnf$1"], "postprocess": data => Number([data[0], ...data[1]].join("")) / 2},
-    {"name": "crossing", "symbols": [{"literal":"x"}], "postprocess": id}
+    {"name": "digit", "symbols": [/[0-9]/], "postprocess": ([match]) => Number(match)},
+    {"name": "digit_even", "symbols": [/[02468]/], "postprocess": ([match]) => Number(match)},
+    {"name": "letter", "symbols": [/[a-zA-Z]/], "postprocess": id},
+    {"name": "letter_even", "symbols": [/[acegikmoqsuwyACEGIKMOQSUWY]/], "postprocess": id},
+    {"name": "integer", "symbols": [/[0-9]/], "postprocess": ([match]) => Number(match)},
+    {"name": "integer$ebnf$1", "symbols": [/[0-9]/]},
+    {"name": "integer$ebnf$1", "symbols": ["integer$ebnf$1", /[0-9]/], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
+    {"name": "integer", "symbols": [/[1-9]/, "integer$ebnf$1"], "postprocess": ([first, rest]) => Number([first, ...rest].join(""))},
+    {"name": "integer_even", "symbols": [/[02468]/], "postprocess": ([match]) => Number(match)},
+    {"name": "integer_even$ebnf$1", "symbols": []},
+    {"name": "integer_even$ebnf$1", "symbols": ["integer_even$ebnf$1", /[0-9]/], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
+    {"name": "integer_even", "symbols": [/[1-9]/, "integer_even$ebnf$1", /[02468]/], "postprocess": ([first, rest, last]) => Number([first, ...rest, last].join(""))},
+    {"name": "cross", "symbols": [{"literal":"x"}], "postprocess": () => true},
+    {"name": "_$ebnf$1", "symbols": []},
+    {"name": "_$ebnf$1", "symbols": ["_$ebnf$1", {"literal":" "}], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
+    {"name": "_", "symbols": ["_$ebnf$1"], "postprocess": () => null},
+    {"name": "standard_async$macrocall$2$macrocall$2$macrocall$2", "symbols": ["standard_async_toss"]},
+    {"name": "standard_async$macrocall$2$macrocall$2$macrocall$3", "symbols": [{"literal":","}]},
+    {"name": "standard_async$macrocall$2$macrocall$2$macrocall$1", "symbols": ["standard_async$macrocall$2$macrocall$2$macrocall$2"], "postprocess": id},
+    {"name": "standard_async$macrocall$2$macrocall$2$macrocall$1$ebnf$1$subexpression$1", "symbols": ["_", "standard_async$macrocall$2$macrocall$2$macrocall$3", "_", "standard_async$macrocall$2$macrocall$2$macrocall$2"]},
+    {"name": "standard_async$macrocall$2$macrocall$2$macrocall$1$ebnf$1", "symbols": ["standard_async$macrocall$2$macrocall$2$macrocall$1$ebnf$1$subexpression$1"]},
+    {"name": "standard_async$macrocall$2$macrocall$2$macrocall$1$ebnf$1$subexpression$2", "symbols": ["_", "standard_async$macrocall$2$macrocall$2$macrocall$3", "_", "standard_async$macrocall$2$macrocall$2$macrocall$2"]},
+    {"name": "standard_async$macrocall$2$macrocall$2$macrocall$1$ebnf$1", "symbols": ["standard_async$macrocall$2$macrocall$2$macrocall$1$ebnf$1", "standard_async$macrocall$2$macrocall$2$macrocall$1$ebnf$1$subexpression$2"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
+    {"name": "standard_async$macrocall$2$macrocall$2$macrocall$1", "symbols": [{"literal":"["}, "_", "standard_async$macrocall$2$macrocall$2$macrocall$2", "standard_async$macrocall$2$macrocall$2$macrocall$1$ebnf$1", "_", {"literal":"]"}], "postprocess": ([, , [first], rest]) => [first, ...rest.map(([,,,[toss]]) => toss)]},
+    {"name": "standard_async$macrocall$2$macrocall$2", "symbols": ["standard_async$macrocall$2$macrocall$2$macrocall$1"]},
+    {"name": "standard_async$macrocall$2$macrocall$3", "symbols": [{"literal":","}]},
+    {"name": "standard_async$macrocall$2$macrocall$1$macrocall$2", "symbols": ["standard_async$macrocall$2$macrocall$2"]},
+    {"name": "standard_async$macrocall$2$macrocall$1$macrocall$3", "symbols": ["standard_async$macrocall$2$macrocall$3"]},
+    {"name": "standard_async$macrocall$2$macrocall$1$macrocall$1$ebnf$1", "symbols": []},
+    {"name": "standard_async$macrocall$2$macrocall$1$macrocall$1$ebnf$1$subexpression$1", "symbols": ["_", "standard_async$macrocall$2$macrocall$1$macrocall$3", "_", "standard_async$macrocall$2$macrocall$1$macrocall$2"]},
+    {"name": "standard_async$macrocall$2$macrocall$1$macrocall$1$ebnf$1", "symbols": ["standard_async$macrocall$2$macrocall$1$macrocall$1$ebnf$1", "standard_async$macrocall$2$macrocall$1$macrocall$1$ebnf$1$subexpression$1"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
+    {"name": "standard_async$macrocall$2$macrocall$1$macrocall$1", "symbols": ["standard_async$macrocall$2$macrocall$1$macrocall$2", "standard_async$macrocall$2$macrocall$1$macrocall$1$ebnf$1"], "postprocess": ([[first], rest]) => [first, ...rest.map(([,,,[toss]]) => toss)]},
+    {"name": "standard_async$macrocall$2$macrocall$1", "symbols": ["standard_async$macrocall$2$macrocall$1$macrocall$1"], "postprocess": id},
+    {"name": "standard_async$macrocall$2", "symbols": ["standard_async$macrocall$2$macrocall$1"]},
+    {"name": "standard_async$macrocall$1", "symbols": ["_", "standard_async$macrocall$2", "_"], "postprocess": ([, [match]]) => match},
+    {"name": "standard_async", "symbols": ["standard_async$macrocall$1"], "postprocess": ([throws])  => finaliseAsync(throws)},
+    {"name": "standard_async$macrocall$4$macrocall$2$macrocall$2", "symbols": ["standard_async_toss"]},
+    {"name": "standard_async$macrocall$4$macrocall$2$macrocall$3", "symbols": [{"literal":" "}]},
+    {"name": "standard_async$macrocall$4$macrocall$2$macrocall$1", "symbols": ["standard_async$macrocall$4$macrocall$2$macrocall$2"], "postprocess": id},
+    {"name": "standard_async$macrocall$4$macrocall$2$macrocall$1$ebnf$1$subexpression$1", "symbols": ["_", "standard_async$macrocall$4$macrocall$2$macrocall$3", "_", "standard_async$macrocall$4$macrocall$2$macrocall$2"]},
+    {"name": "standard_async$macrocall$4$macrocall$2$macrocall$1$ebnf$1", "symbols": ["standard_async$macrocall$4$macrocall$2$macrocall$1$ebnf$1$subexpression$1"]},
+    {"name": "standard_async$macrocall$4$macrocall$2$macrocall$1$ebnf$1$subexpression$2", "symbols": ["_", "standard_async$macrocall$4$macrocall$2$macrocall$3", "_", "standard_async$macrocall$4$macrocall$2$macrocall$2"]},
+    {"name": "standard_async$macrocall$4$macrocall$2$macrocall$1$ebnf$1", "symbols": ["standard_async$macrocall$4$macrocall$2$macrocall$1$ebnf$1", "standard_async$macrocall$4$macrocall$2$macrocall$1$ebnf$1$subexpression$2"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
+    {"name": "standard_async$macrocall$4$macrocall$2$macrocall$1", "symbols": [{"literal":"["}, "_", "standard_async$macrocall$4$macrocall$2$macrocall$2", "standard_async$macrocall$4$macrocall$2$macrocall$1$ebnf$1", "_", {"literal":"]"}], "postprocess": ([, , [first], rest]) => [first, ...rest.map(([,,,[toss]]) => toss)]},
+    {"name": "standard_async$macrocall$4$macrocall$2", "symbols": ["standard_async$macrocall$4$macrocall$2$macrocall$1"]},
+    {"name": "standard_async$macrocall$4$macrocall$3", "symbols": [{"literal":" "}]},
+    {"name": "standard_async$macrocall$4$macrocall$1$macrocall$2", "symbols": ["standard_async$macrocall$4$macrocall$2"]},
+    {"name": "standard_async$macrocall$4$macrocall$1$macrocall$3", "symbols": ["standard_async$macrocall$4$macrocall$3"]},
+    {"name": "standard_async$macrocall$4$macrocall$1$macrocall$1$ebnf$1", "symbols": []},
+    {"name": "standard_async$macrocall$4$macrocall$1$macrocall$1$ebnf$1$subexpression$1", "symbols": ["_", "standard_async$macrocall$4$macrocall$1$macrocall$3", "_", "standard_async$macrocall$4$macrocall$1$macrocall$2"]},
+    {"name": "standard_async$macrocall$4$macrocall$1$macrocall$1$ebnf$1", "symbols": ["standard_async$macrocall$4$macrocall$1$macrocall$1$ebnf$1", "standard_async$macrocall$4$macrocall$1$macrocall$1$ebnf$1$subexpression$1"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
+    {"name": "standard_async$macrocall$4$macrocall$1$macrocall$1", "symbols": ["standard_async$macrocall$4$macrocall$1$macrocall$2", "standard_async$macrocall$4$macrocall$1$macrocall$1$ebnf$1"], "postprocess": ([[first], rest]) => [first, ...rest.map(([,,,[toss]]) => toss)]},
+    {"name": "standard_async$macrocall$4$macrocall$1", "symbols": ["standard_async$macrocall$4$macrocall$1$macrocall$1"], "postprocess": id},
+    {"name": "standard_async$macrocall$4", "symbols": ["standard_async$macrocall$4$macrocall$1"]},
+    {"name": "standard_async$macrocall$3", "symbols": ["_", "standard_async$macrocall$4", "_"], "postprocess": ([, [match]]) => match},
+    {"name": "standard_async", "symbols": ["standard_async$macrocall$3"], "postprocess": ([throws])  => finaliseAsync(throws)},
+    {"name": "standard_async_toss", "symbols": ["integer"], "postprocess": ([value]) => ({ value })},
+    {"name": "standard_sync$macrocall$2$macrocall$2$macrocall$2", "symbols": ["standard_sync_toss"]},
+    {"name": "standard_sync$macrocall$2$macrocall$2$macrocall$3", "symbols": [{"literal":","}]},
+    {"name": "standard_sync$macrocall$2$macrocall$2$macrocall$1", "symbols": ["standard_sync$macrocall$2$macrocall$2$macrocall$2"], "postprocess": id},
+    {"name": "standard_sync$macrocall$2$macrocall$2$macrocall$1$ebnf$1$subexpression$1", "symbols": ["_", "standard_sync$macrocall$2$macrocall$2$macrocall$3", "_", "standard_sync$macrocall$2$macrocall$2$macrocall$2"]},
+    {"name": "standard_sync$macrocall$2$macrocall$2$macrocall$1$ebnf$1", "symbols": ["standard_sync$macrocall$2$macrocall$2$macrocall$1$ebnf$1$subexpression$1"]},
+    {"name": "standard_sync$macrocall$2$macrocall$2$macrocall$1$ebnf$1$subexpression$2", "symbols": ["_", "standard_sync$macrocall$2$macrocall$2$macrocall$3", "_", "standard_sync$macrocall$2$macrocall$2$macrocall$2"]},
+    {"name": "standard_sync$macrocall$2$macrocall$2$macrocall$1$ebnf$1", "symbols": ["standard_sync$macrocall$2$macrocall$2$macrocall$1$ebnf$1", "standard_sync$macrocall$2$macrocall$2$macrocall$1$ebnf$1$subexpression$2"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
+    {"name": "standard_sync$macrocall$2$macrocall$2$macrocall$1", "symbols": [{"literal":"["}, "_", "standard_sync$macrocall$2$macrocall$2$macrocall$2", "standard_sync$macrocall$2$macrocall$2$macrocall$1$ebnf$1", "_", {"literal":"]"}], "postprocess": ([, , [first], rest]) => [first, ...rest.map(([,,,[toss]]) => toss)]},
+    {"name": "standard_sync$macrocall$2$macrocall$2", "symbols": ["standard_sync$macrocall$2$macrocall$2$macrocall$1"]},
+    {"name": "standard_sync$macrocall$2$macrocall$3", "symbols": [{"literal":","}]},
+    {"name": "standard_sync$macrocall$2$macrocall$1$macrocall$2$macrocall$2", "symbols": ["standard_sync$macrocall$2$macrocall$2"]},
+    {"name": "standard_sync$macrocall$2$macrocall$1$macrocall$2$macrocall$3", "symbols": ["standard_sync$macrocall$2$macrocall$3"]},
+    {"name": "standard_sync$macrocall$2$macrocall$1$macrocall$2$macrocall$1", "symbols": [{"literal":"("}, "_", "standard_sync$macrocall$2$macrocall$1$macrocall$2$macrocall$2", "_", "standard_sync$macrocall$2$macrocall$1$macrocall$2$macrocall$3", "_", "standard_sync$macrocall$2$macrocall$1$macrocall$2$macrocall$2", "_", {"literal":")"}], "postprocess": ([, , [[release1]], , , , [[release2]]]) => [release1, release2]},
+    {"name": "standard_sync$macrocall$2$macrocall$1$macrocall$2", "symbols": ["standard_sync$macrocall$2$macrocall$1$macrocall$2$macrocall$1"]},
+    {"name": "standard_sync$macrocall$2$macrocall$1$macrocall$3", "symbols": ["_"]},
+    {"name": "standard_sync$macrocall$2$macrocall$1$macrocall$1$ebnf$1", "symbols": []},
+    {"name": "standard_sync$macrocall$2$macrocall$1$macrocall$1$ebnf$1$subexpression$1", "symbols": ["standard_sync$macrocall$2$macrocall$1$macrocall$3", "standard_sync$macrocall$2$macrocall$1$macrocall$2"]},
+    {"name": "standard_sync$macrocall$2$macrocall$1$macrocall$1$ebnf$1", "symbols": ["standard_sync$macrocall$2$macrocall$1$macrocall$1$ebnf$1", "standard_sync$macrocall$2$macrocall$1$macrocall$1$ebnf$1$subexpression$1"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
+    {"name": "standard_sync$macrocall$2$macrocall$1$macrocall$1", "symbols": ["standard_sync$macrocall$2$macrocall$1$macrocall$2", "standard_sync$macrocall$2$macrocall$1$macrocall$1$ebnf$1"], "postprocess": ([[first], rest]) => [first, ...rest.map(([,[toss]]) => toss)]},
+    {"name": "standard_sync$macrocall$2$macrocall$1$ebnf$1", "symbols": [{"literal":"*"}], "postprocess": id},
+    {"name": "standard_sync$macrocall$2$macrocall$1$ebnf$1", "symbols": [], "postprocess": function(d) {return null;}},
+    {"name": "standard_sync$macrocall$2$macrocall$1", "symbols": ["standard_sync$macrocall$2$macrocall$1$macrocall$1", "_", "standard_sync$macrocall$2$macrocall$1$ebnf$1"], "postprocess": ([actions, , mirrored]) => mirrored ? mirror(actions) : actions},
+    {"name": "standard_sync$macrocall$2", "symbols": ["standard_sync$macrocall$2$macrocall$1"]},
+    {"name": "standard_sync$macrocall$1", "symbols": ["_", "standard_sync$macrocall$2", "_"], "postprocess": ([, [match]]) => match},
+    {"name": "standard_sync", "symbols": ["standard_sync$macrocall$1"], "postprocess": ([throws]) => finaliseSync(throws)},
+    {"name": "standard_sync$macrocall$4$macrocall$2$macrocall$2", "symbols": ["standard_sync_toss"]},
+    {"name": "standard_sync$macrocall$4$macrocall$2$macrocall$3", "symbols": [{"literal":" "}]},
+    {"name": "standard_sync$macrocall$4$macrocall$2$macrocall$1", "symbols": ["standard_sync$macrocall$4$macrocall$2$macrocall$2"], "postprocess": id},
+    {"name": "standard_sync$macrocall$4$macrocall$2$macrocall$1$ebnf$1$subexpression$1", "symbols": ["_", "standard_sync$macrocall$4$macrocall$2$macrocall$3", "_", "standard_sync$macrocall$4$macrocall$2$macrocall$2"]},
+    {"name": "standard_sync$macrocall$4$macrocall$2$macrocall$1$ebnf$1", "symbols": ["standard_sync$macrocall$4$macrocall$2$macrocall$1$ebnf$1$subexpression$1"]},
+    {"name": "standard_sync$macrocall$4$macrocall$2$macrocall$1$ebnf$1$subexpression$2", "symbols": ["_", "standard_sync$macrocall$4$macrocall$2$macrocall$3", "_", "standard_sync$macrocall$4$macrocall$2$macrocall$2"]},
+    {"name": "standard_sync$macrocall$4$macrocall$2$macrocall$1$ebnf$1", "symbols": ["standard_sync$macrocall$4$macrocall$2$macrocall$1$ebnf$1", "standard_sync$macrocall$4$macrocall$2$macrocall$1$ebnf$1$subexpression$2"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
+    {"name": "standard_sync$macrocall$4$macrocall$2$macrocall$1", "symbols": [{"literal":"["}, "_", "standard_sync$macrocall$4$macrocall$2$macrocall$2", "standard_sync$macrocall$4$macrocall$2$macrocall$1$ebnf$1", "_", {"literal":"]"}], "postprocess": ([, , [first], rest]) => [first, ...rest.map(([,,,[toss]]) => toss)]},
+    {"name": "standard_sync$macrocall$4$macrocall$2", "symbols": ["standard_sync$macrocall$4$macrocall$2$macrocall$1"]},
+    {"name": "standard_sync$macrocall$4$macrocall$3", "symbols": [{"literal":" "}]},
+    {"name": "standard_sync$macrocall$4$macrocall$1$macrocall$2$macrocall$2", "symbols": ["standard_sync$macrocall$4$macrocall$2"]},
+    {"name": "standard_sync$macrocall$4$macrocall$1$macrocall$2$macrocall$3", "symbols": ["standard_sync$macrocall$4$macrocall$3"]},
+    {"name": "standard_sync$macrocall$4$macrocall$1$macrocall$2$macrocall$1", "symbols": [{"literal":"("}, "_", "standard_sync$macrocall$4$macrocall$1$macrocall$2$macrocall$2", "_", "standard_sync$macrocall$4$macrocall$1$macrocall$2$macrocall$3", "_", "standard_sync$macrocall$4$macrocall$1$macrocall$2$macrocall$2", "_", {"literal":")"}], "postprocess": ([, , [[release1]], , , , [[release2]]]) => [release1, release2]},
+    {"name": "standard_sync$macrocall$4$macrocall$1$macrocall$2", "symbols": ["standard_sync$macrocall$4$macrocall$1$macrocall$2$macrocall$1"]},
+    {"name": "standard_sync$macrocall$4$macrocall$1$macrocall$3", "symbols": ["_"]},
+    {"name": "standard_sync$macrocall$4$macrocall$1$macrocall$1$ebnf$1", "symbols": []},
+    {"name": "standard_sync$macrocall$4$macrocall$1$macrocall$1$ebnf$1$subexpression$1", "symbols": ["standard_sync$macrocall$4$macrocall$1$macrocall$3", "standard_sync$macrocall$4$macrocall$1$macrocall$2"]},
+    {"name": "standard_sync$macrocall$4$macrocall$1$macrocall$1$ebnf$1", "symbols": ["standard_sync$macrocall$4$macrocall$1$macrocall$1$ebnf$1", "standard_sync$macrocall$4$macrocall$1$macrocall$1$ebnf$1$subexpression$1"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
+    {"name": "standard_sync$macrocall$4$macrocall$1$macrocall$1", "symbols": ["standard_sync$macrocall$4$macrocall$1$macrocall$2", "standard_sync$macrocall$4$macrocall$1$macrocall$1$ebnf$1"], "postprocess": ([[first], rest]) => [first, ...rest.map(([,[toss]]) => toss)]},
+    {"name": "standard_sync$macrocall$4$macrocall$1$ebnf$1", "symbols": [{"literal":"*"}], "postprocess": id},
+    {"name": "standard_sync$macrocall$4$macrocall$1$ebnf$1", "symbols": [], "postprocess": function(d) {return null;}},
+    {"name": "standard_sync$macrocall$4$macrocall$1", "symbols": ["standard_sync$macrocall$4$macrocall$1$macrocall$1", "_", "standard_sync$macrocall$4$macrocall$1$ebnf$1"], "postprocess": ([actions, , mirrored]) => mirrored ? mirror(actions) : actions},
+    {"name": "standard_sync$macrocall$4", "symbols": ["standard_sync$macrocall$4$macrocall$1"]},
+    {"name": "standard_sync$macrocall$3", "symbols": ["_", "standard_sync$macrocall$4", "_"], "postprocess": ([, [match]]) => match},
+    {"name": "standard_sync", "symbols": ["standard_sync$macrocall$3"], "postprocess": ([throws]) => finaliseSync(throws)},
+    {"name": "standard_sync_toss$ebnf$1", "symbols": ["cross"], "postprocess": id},
+    {"name": "standard_sync_toss$ebnf$1", "symbols": [], "postprocess": function(d) {return null;}},
+    {"name": "standard_sync_toss", "symbols": ["integer_even", "standard_sync_toss$ebnf$1"], "postprocess": ([value, cross]) => ({ value: value, cross: !!cross })},
+    {"name": "compressed_async$macrocall$2$macrocall$2$macrocall$2", "symbols": ["compressed_async_toss"]},
+    {"name": "compressed_async$macrocall$2$macrocall$2$macrocall$3", "symbols": []},
+    {"name": "compressed_async$macrocall$2$macrocall$2$macrocall$1", "symbols": ["compressed_async$macrocall$2$macrocall$2$macrocall$2"], "postprocess": id},
+    {"name": "compressed_async$macrocall$2$macrocall$2$macrocall$1$ebnf$1$subexpression$1", "symbols": ["compressed_async$macrocall$2$macrocall$2$macrocall$3", "compressed_async$macrocall$2$macrocall$2$macrocall$2"]},
+    {"name": "compressed_async$macrocall$2$macrocall$2$macrocall$1$ebnf$1", "symbols": ["compressed_async$macrocall$2$macrocall$2$macrocall$1$ebnf$1$subexpression$1"]},
+    {"name": "compressed_async$macrocall$2$macrocall$2$macrocall$1$ebnf$1$subexpression$2", "symbols": ["compressed_async$macrocall$2$macrocall$2$macrocall$3", "compressed_async$macrocall$2$macrocall$2$macrocall$2"]},
+    {"name": "compressed_async$macrocall$2$macrocall$2$macrocall$1$ebnf$1", "symbols": ["compressed_async$macrocall$2$macrocall$2$macrocall$1$ebnf$1", "compressed_async$macrocall$2$macrocall$2$macrocall$1$ebnf$1$subexpression$2"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
+    {"name": "compressed_async$macrocall$2$macrocall$2$macrocall$1", "symbols": [{"literal":"["}, "compressed_async$macrocall$2$macrocall$2$macrocall$2", "compressed_async$macrocall$2$macrocall$2$macrocall$1$ebnf$1", {"literal":"]"}], "postprocess": ([, [first], rest]) => [first, ...rest.map(([,[toss]]) => toss)]},
+    {"name": "compressed_async$macrocall$2$macrocall$2", "symbols": ["compressed_async$macrocall$2$macrocall$2$macrocall$1"]},
+    {"name": "compressed_async$macrocall$2$macrocall$3", "symbols": []},
+    {"name": "compressed_async$macrocall$2$macrocall$1$macrocall$2", "symbols": ["compressed_async$macrocall$2$macrocall$2"]},
+    {"name": "compressed_async$macrocall$2$macrocall$1$macrocall$3", "symbols": ["compressed_async$macrocall$2$macrocall$3"]},
+    {"name": "compressed_async$macrocall$2$macrocall$1$macrocall$1$ebnf$1", "symbols": []},
+    {"name": "compressed_async$macrocall$2$macrocall$1$macrocall$1$ebnf$1$subexpression$1", "symbols": ["compressed_async$macrocall$2$macrocall$1$macrocall$3", "compressed_async$macrocall$2$macrocall$1$macrocall$2"]},
+    {"name": "compressed_async$macrocall$2$macrocall$1$macrocall$1$ebnf$1", "symbols": ["compressed_async$macrocall$2$macrocall$1$macrocall$1$ebnf$1", "compressed_async$macrocall$2$macrocall$1$macrocall$1$ebnf$1$subexpression$1"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
+    {"name": "compressed_async$macrocall$2$macrocall$1$macrocall$1", "symbols": ["compressed_async$macrocall$2$macrocall$1$macrocall$2", "compressed_async$macrocall$2$macrocall$1$macrocall$1$ebnf$1"], "postprocess": ([[first], rest]) => [first, ...rest.map(([,[toss]]) => toss)]},
+    {"name": "compressed_async$macrocall$2$macrocall$1", "symbols": ["compressed_async$macrocall$2$macrocall$1$macrocall$1"], "postprocess": id},
+    {"name": "compressed_async$macrocall$2", "symbols": ["compressed_async$macrocall$2$macrocall$1"]},
+    {"name": "compressed_async$macrocall$1", "symbols": ["_", "compressed_async$macrocall$2", "_"], "postprocess": ([, [match]]) => match},
+    {"name": "compressed_async", "symbols": ["compressed_async$macrocall$1"], "postprocess": ([throws]) => finaliseAsync(throws)},
+    {"name": "compressed_async_toss", "symbols": ["digit"], "postprocess": ([value]) => ({ value })},
+    {"name": "compressed_async_toss", "symbols": ["letter"], "postprocess": ([value]) => ({ value: numerify(value) })},
+    {"name": "compressed_sync$macrocall$2$macrocall$2$macrocall$2", "symbols": ["compressed_sync_toss"]},
+    {"name": "compressed_sync$macrocall$2$macrocall$2$macrocall$3", "symbols": []},
+    {"name": "compressed_sync$macrocall$2$macrocall$2$macrocall$1", "symbols": ["compressed_sync$macrocall$2$macrocall$2$macrocall$2"], "postprocess": id},
+    {"name": "compressed_sync$macrocall$2$macrocall$2$macrocall$1$ebnf$1$subexpression$1", "symbols": ["compressed_sync$macrocall$2$macrocall$2$macrocall$3", "compressed_sync$macrocall$2$macrocall$2$macrocall$2"]},
+    {"name": "compressed_sync$macrocall$2$macrocall$2$macrocall$1$ebnf$1", "symbols": ["compressed_sync$macrocall$2$macrocall$2$macrocall$1$ebnf$1$subexpression$1"]},
+    {"name": "compressed_sync$macrocall$2$macrocall$2$macrocall$1$ebnf$1$subexpression$2", "symbols": ["compressed_sync$macrocall$2$macrocall$2$macrocall$3", "compressed_sync$macrocall$2$macrocall$2$macrocall$2"]},
+    {"name": "compressed_sync$macrocall$2$macrocall$2$macrocall$1$ebnf$1", "symbols": ["compressed_sync$macrocall$2$macrocall$2$macrocall$1$ebnf$1", "compressed_sync$macrocall$2$macrocall$2$macrocall$1$ebnf$1$subexpression$2"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
+    {"name": "compressed_sync$macrocall$2$macrocall$2$macrocall$1", "symbols": [{"literal":"["}, "compressed_sync$macrocall$2$macrocall$2$macrocall$2", "compressed_sync$macrocall$2$macrocall$2$macrocall$1$ebnf$1", {"literal":"]"}], "postprocess": ([, [first], rest]) => [first, ...rest.map(([,[toss]]) => toss)]},
+    {"name": "compressed_sync$macrocall$2$macrocall$2", "symbols": ["compressed_sync$macrocall$2$macrocall$2$macrocall$1"]},
+    {"name": "compressed_sync$macrocall$2$macrocall$3", "symbols": [{"literal":","}]},
+    {"name": "compressed_sync$macrocall$2$macrocall$1$ebnf$1$macrocall$2", "symbols": ["compressed_sync$macrocall$2$macrocall$2"]},
+    {"name": "compressed_sync$macrocall$2$macrocall$1$ebnf$1$macrocall$3", "symbols": ["compressed_sync$macrocall$2$macrocall$3"]},
+    {"name": "compressed_sync$macrocall$2$macrocall$1$ebnf$1$macrocall$1", "symbols": [{"literal":"("}, "compressed_sync$macrocall$2$macrocall$1$ebnf$1$macrocall$2", "compressed_sync$macrocall$2$macrocall$1$ebnf$1$macrocall$3", "compressed_sync$macrocall$2$macrocall$1$ebnf$1$macrocall$2", {"literal":")"}], "postprocess": ([, [[release1]], , [[release2]]]) => [release1, release2]},
+    {"name": "compressed_sync$macrocall$2$macrocall$1$ebnf$1", "symbols": ["compressed_sync$macrocall$2$macrocall$1$ebnf$1$macrocall$1"]},
+    {"name": "compressed_sync$macrocall$2$macrocall$1$ebnf$1$macrocall$5", "symbols": ["compressed_sync$macrocall$2$macrocall$2"]},
+    {"name": "compressed_sync$macrocall$2$macrocall$1$ebnf$1$macrocall$6", "symbols": ["compressed_sync$macrocall$2$macrocall$3"]},
+    {"name": "compressed_sync$macrocall$2$macrocall$1$ebnf$1$macrocall$4", "symbols": [{"literal":"("}, "compressed_sync$macrocall$2$macrocall$1$ebnf$1$macrocall$5", "compressed_sync$macrocall$2$macrocall$1$ebnf$1$macrocall$6", "compressed_sync$macrocall$2$macrocall$1$ebnf$1$macrocall$5", {"literal":")"}], "postprocess": ([, [[release1]], , [[release2]]]) => [release1, release2]},
+    {"name": "compressed_sync$macrocall$2$macrocall$1$ebnf$1", "symbols": ["compressed_sync$macrocall$2$macrocall$1$ebnf$1", "compressed_sync$macrocall$2$macrocall$1$ebnf$1$macrocall$4"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
+    {"name": "compressed_sync$macrocall$2$macrocall$1$ebnf$2", "symbols": [{"literal":"*"}], "postprocess": id},
+    {"name": "compressed_sync$macrocall$2$macrocall$1$ebnf$2", "symbols": [], "postprocess": function(d) {return null;}},
+    {"name": "compressed_sync$macrocall$2$macrocall$1", "symbols": ["compressed_sync$macrocall$2$macrocall$1$ebnf$1", "compressed_sync$macrocall$2$macrocall$1$ebnf$2"], "postprocess": ([actions, mirrored])   => mirrored ? mirror(actions) : actions},
+    {"name": "compressed_sync$macrocall$2", "symbols": ["compressed_sync$macrocall$2$macrocall$1"]},
+    {"name": "compressed_sync$macrocall$1", "symbols": ["_", "compressed_sync$macrocall$2", "_"], "postprocess": ([, [match]]) => match},
+    {"name": "compressed_sync", "symbols": ["compressed_sync$macrocall$1"], "postprocess": ([throws]) => finaliseSync(throws)},
+    {"name": "compressed_sync$macrocall$4$macrocall$2$macrocall$2", "symbols": ["compressed_sync_toss"]},
+    {"name": "compressed_sync$macrocall$4$macrocall$2$macrocall$3", "symbols": []},
+    {"name": "compressed_sync$macrocall$4$macrocall$2$macrocall$1", "symbols": ["compressed_sync$macrocall$4$macrocall$2$macrocall$2"], "postprocess": id},
+    {"name": "compressed_sync$macrocall$4$macrocall$2$macrocall$1$ebnf$1$subexpression$1", "symbols": ["compressed_sync$macrocall$4$macrocall$2$macrocall$3", "compressed_sync$macrocall$4$macrocall$2$macrocall$2"]},
+    {"name": "compressed_sync$macrocall$4$macrocall$2$macrocall$1$ebnf$1", "symbols": ["compressed_sync$macrocall$4$macrocall$2$macrocall$1$ebnf$1$subexpression$1"]},
+    {"name": "compressed_sync$macrocall$4$macrocall$2$macrocall$1$ebnf$1$subexpression$2", "symbols": ["compressed_sync$macrocall$4$macrocall$2$macrocall$3", "compressed_sync$macrocall$4$macrocall$2$macrocall$2"]},
+    {"name": "compressed_sync$macrocall$4$macrocall$2$macrocall$1$ebnf$1", "symbols": ["compressed_sync$macrocall$4$macrocall$2$macrocall$1$ebnf$1", "compressed_sync$macrocall$4$macrocall$2$macrocall$1$ebnf$1$subexpression$2"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
+    {"name": "compressed_sync$macrocall$4$macrocall$2$macrocall$1", "symbols": [{"literal":"["}, "compressed_sync$macrocall$4$macrocall$2$macrocall$2", "compressed_sync$macrocall$4$macrocall$2$macrocall$1$ebnf$1", {"literal":"]"}], "postprocess": ([, [first], rest]) => [first, ...rest.map(([,[toss]]) => toss)]},
+    {"name": "compressed_sync$macrocall$4$macrocall$2", "symbols": ["compressed_sync$macrocall$4$macrocall$2$macrocall$1"]},
+    {"name": "compressed_sync$macrocall$4$macrocall$3", "symbols": []},
+    {"name": "compressed_sync$macrocall$4$macrocall$1$ebnf$1$macrocall$2", "symbols": ["compressed_sync$macrocall$4$macrocall$2"]},
+    {"name": "compressed_sync$macrocall$4$macrocall$1$ebnf$1$macrocall$3", "symbols": ["compressed_sync$macrocall$4$macrocall$3"]},
+    {"name": "compressed_sync$macrocall$4$macrocall$1$ebnf$1$macrocall$1", "symbols": [{"literal":"("}, "compressed_sync$macrocall$4$macrocall$1$ebnf$1$macrocall$2", "compressed_sync$macrocall$4$macrocall$1$ebnf$1$macrocall$3", "compressed_sync$macrocall$4$macrocall$1$ebnf$1$macrocall$2", {"literal":")"}], "postprocess": ([, [[release1]], , [[release2]]]) => [release1, release2]},
+    {"name": "compressed_sync$macrocall$4$macrocall$1$ebnf$1", "symbols": ["compressed_sync$macrocall$4$macrocall$1$ebnf$1$macrocall$1"]},
+    {"name": "compressed_sync$macrocall$4$macrocall$1$ebnf$1$macrocall$5", "symbols": ["compressed_sync$macrocall$4$macrocall$2"]},
+    {"name": "compressed_sync$macrocall$4$macrocall$1$ebnf$1$macrocall$6", "symbols": ["compressed_sync$macrocall$4$macrocall$3"]},
+    {"name": "compressed_sync$macrocall$4$macrocall$1$ebnf$1$macrocall$4", "symbols": [{"literal":"("}, "compressed_sync$macrocall$4$macrocall$1$ebnf$1$macrocall$5", "compressed_sync$macrocall$4$macrocall$1$ebnf$1$macrocall$6", "compressed_sync$macrocall$4$macrocall$1$ebnf$1$macrocall$5", {"literal":")"}], "postprocess": ([, [[release1]], , [[release2]]]) => [release1, release2]},
+    {"name": "compressed_sync$macrocall$4$macrocall$1$ebnf$1", "symbols": ["compressed_sync$macrocall$4$macrocall$1$ebnf$1", "compressed_sync$macrocall$4$macrocall$1$ebnf$1$macrocall$4"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
+    {"name": "compressed_sync$macrocall$4$macrocall$1$ebnf$2", "symbols": [{"literal":"*"}], "postprocess": id},
+    {"name": "compressed_sync$macrocall$4$macrocall$1$ebnf$2", "symbols": [], "postprocess": function(d) {return null;}},
+    {"name": "compressed_sync$macrocall$4$macrocall$1", "symbols": ["compressed_sync$macrocall$4$macrocall$1$ebnf$1", "compressed_sync$macrocall$4$macrocall$1$ebnf$2"], "postprocess": ([actions, mirrored])   => mirrored ? mirror(actions) : actions},
+    {"name": "compressed_sync$macrocall$4", "symbols": ["compressed_sync$macrocall$4$macrocall$1"]},
+    {"name": "compressed_sync$macrocall$3", "symbols": ["_", "compressed_sync$macrocall$4", "_"], "postprocess": ([, [match]]) => match},
+    {"name": "compressed_sync", "symbols": ["compressed_sync$macrocall$3"], "postprocess": ([throws]) => finaliseSync(throws)},
+    {"name": "compressed_sync_toss$ebnf$1", "symbols": ["cross"], "postprocess": id},
+    {"name": "compressed_sync_toss$ebnf$1", "symbols": [], "postprocess": function(d) {return null;}},
+    {"name": "compressed_sync_toss", "symbols": ["digit_even", "compressed_sync_toss$ebnf$1"], "postprocess": ([value, cross]) => ({ value,                  cross: !!cross })},
+    {"name": "compressed_sync_toss$ebnf$2", "symbols": ["cross"], "postprocess": id},
+    {"name": "compressed_sync_toss$ebnf$2", "symbols": [], "postprocess": function(d) {return null;}},
+    {"name": "compressed_sync_toss", "symbols": ["letter_even", "compressed_sync_toss$ebnf$2"], "postprocess": ([value, cross]) => ({ value: numerify(value), cross: !!cross })}
 ]
-  , ParserStart: "siteswap"
+  , ParserStart: "digit"
 };
 
-// Generated automatically by nearley
-// http://github.com/Hardmath123/nearley
-function id$1(x) {return x[0]; }
-
-
-function mirror$1( throws ){
-
-   return throws.concat( throws.map( action => action.map( release => release.map(({ value, crossing }) => ({ value, crossing })) ).reverse() ));
+function parse$1( rule, string ){
+   
+   try{
+      return new Parser(grammar.ParserRules, rule).feed(string).results;
+   }
+   catch(e){
+      return [];
+   }
 
 }
 
-function finalise$1( throws ){
-  
-   return throws.map( action => action.map((release, i) => release.map(toss => new Toss(toss.value, i, toss.crossing ? 1 - i : i))) );
+const declaration = {
+
+   limits: {
+      degree: { min: 1, max: 1 }
+   },
+   hands: () => ["Hand"],
+   parse: parse$1.bind(null, "standard_async"),
+   unparse: throws => throws.map( ([release]) => release.length === 1 ? release[0].value : `[${release.map(({ value }) => value).join(",")}]`).join(",")
+
+};
+
+function unparseToss({ value, handFrom, handTo }){
+   
+   return `${value * 2}${handFrom !== handTo ? "x" : ""}`;
 
 }
 
+const declaration$1 = {
 
+   limits: {
+      degree: { min: 2, max: 2 }
+   },
+   hands: () => ["Left", "Right"],
+   parse: parse$1.bind(null, "standard_sync"),
+   unparse: throws => throws.map( action => "(" + action.map( release => release.length === 1 ? unparseToss(release[0]) : `[${release.map(unparseToss).join(",")}]` ) + ")"  ).join("")
 
+};
 
-function numerify( letter ){
+const declaration$2 = {
 
-  if( letter < "a" )
-    return letter.charCodeAt(0) - "A".charCodeAt(0) + 36;
-  else
-    return letter.charCodeAt(0) - "a".charCodeAt(0) + 10;
+   limits: {
+      degree: { min: 1, max: 1 },
+      greatestValue: { max: 61 }
+   },
+   hands: () => ["Hand"],
+   parse: parse$1.bind(null, "compressed_async"),
+   unparse: throws => throws.map( ([release]) => release.length === 1 ? release[0].value : `[${release.map(({ value }) => value).join("")}]`).join("")
+
+};
+
+function unparseToss$1({ value, handFrom, handTo }){
+   
+   return `${value * 2}${handFrom !== handTo ? "x" : ""}`;
 
 }
 
-var grammar$1 = {
-    Lexer: undefined,
-    ParserRules: [
-    {"name": "siteswap", "symbols": ["siteswap_a"], "postprocess": data => finalise$1(data[0])},
-    {"name": "siteswap", "symbols": ["siteswap_s"], "postprocess": data => finalise$1(data[0])},
-    {"name": "siteswap_a$ebnf$1", "symbols": ["action_a"]},
-    {"name": "siteswap_a$ebnf$1", "symbols": ["siteswap_a$ebnf$1", "action_a"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
-    {"name": "siteswap_a", "symbols": ["siteswap_a$ebnf$1"], "postprocess": id$1},
-    {"name": "action_a", "symbols": ["release_a"]},
-    {"name": "release_a", "symbols": ["toss_a"]},
-    {"name": "release_a$ebnf$1", "symbols": ["toss_a"]},
-    {"name": "release_a$ebnf$1", "symbols": ["release_a$ebnf$1", "toss_a"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
-    {"name": "release_a", "symbols": [{"literal":"["}, "toss_a", "release_a$ebnf$1", {"literal":"]"}], "postprocess": data => [data[1], ...data[2]]},
-    {"name": "toss_a", "symbols": ["digit_a"], "postprocess": data => ({ value: data[0] })},
-    {"name": "toss_a", "symbols": ["letter_a"], "postprocess": data => ({ value: data[0] })},
-    {"name": "digit_a", "symbols": [/[0-9]/], "postprocess": data => Number(data[0])},
-    {"name": "letter_a", "symbols": [/[a-zA-Z]/], "postprocess": data => numerify(data[0])},
-    {"name": "siteswap_s$ebnf$1$macrocall$2", "symbols": [{"literal":","}]},
-    {"name": "siteswap_s$ebnf$1$macrocall$1", "symbols": [{"literal":"("}, "release_s", "siteswap_s$ebnf$1$macrocall$2", "release_s", {"literal":")"}], "postprocess": data => [data[1], data[3]]},
-    {"name": "siteswap_s$ebnf$1", "symbols": ["siteswap_s$ebnf$1$macrocall$1"]},
-    {"name": "siteswap_s$ebnf$1$macrocall$4", "symbols": [{"literal":","}]},
-    {"name": "siteswap_s$ebnf$1$macrocall$3", "symbols": [{"literal":"("}, "release_s", "siteswap_s$ebnf$1$macrocall$4", "release_s", {"literal":")"}], "postprocess": data => [data[1], data[3]]},
-    {"name": "siteswap_s$ebnf$1", "symbols": ["siteswap_s$ebnf$1", "siteswap_s$ebnf$1$macrocall$3"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
-    {"name": "siteswap_s$ebnf$2", "symbols": [{"literal":"*"}], "postprocess": id$1},
-    {"name": "siteswap_s$ebnf$2", "symbols": [], "postprocess": function(d) {return null;}},
-    {"name": "siteswap_s", "symbols": ["siteswap_s$ebnf$1", "siteswap_s$ebnf$2"], "postprocess": data => data[1] === null ? data[0] : mirror$1(data[0])},
-    {"name": "siteswap_s$ebnf$3$macrocall$2", "symbols": []},
-    {"name": "siteswap_s$ebnf$3$macrocall$1", "symbols": [{"literal":"("}, "release_s", "siteswap_s$ebnf$3$macrocall$2", "release_s", {"literal":")"}], "postprocess": data => [data[1], data[3]]},
-    {"name": "siteswap_s$ebnf$3", "symbols": ["siteswap_s$ebnf$3$macrocall$1"]},
-    {"name": "siteswap_s$ebnf$3$macrocall$4", "symbols": []},
-    {"name": "siteswap_s$ebnf$3$macrocall$3", "symbols": [{"literal":"("}, "release_s", "siteswap_s$ebnf$3$macrocall$4", "release_s", {"literal":")"}], "postprocess": data => [data[1], data[3]]},
-    {"name": "siteswap_s$ebnf$3", "symbols": ["siteswap_s$ebnf$3", "siteswap_s$ebnf$3$macrocall$3"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
-    {"name": "siteswap_s$ebnf$4", "symbols": [{"literal":"*"}], "postprocess": id$1},
-    {"name": "siteswap_s$ebnf$4", "symbols": [], "postprocess": function(d) {return null;}},
-    {"name": "siteswap_s", "symbols": ["siteswap_s$ebnf$3", "siteswap_s$ebnf$4"], "postprocess": data => data[1] === null ? data[0] : mirror$1(data[0])},
-    {"name": "release_s", "symbols": ["toss_s"]},
-    {"name": "release_s$ebnf$1", "symbols": ["toss_s"]},
-    {"name": "release_s$ebnf$1", "symbols": ["release_s$ebnf$1", "toss_s"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
-    {"name": "release_s", "symbols": [{"literal":"["}, "toss_s", "release_s$ebnf$1", {"literal":"]"}], "postprocess": data => [data[1], ...data[2]]},
-    {"name": "toss_s$ebnf$1", "symbols": ["crossing"], "postprocess": id$1},
-    {"name": "toss_s$ebnf$1", "symbols": [], "postprocess": function(d) {return null;}},
-    {"name": "toss_s", "symbols": ["digit_s", "toss_s$ebnf$1"], "postprocess": data => ({ value: data[0], crossing: data[1] !== null })},
-    {"name": "toss_s$ebnf$2", "symbols": ["crossing"], "postprocess": id$1},
-    {"name": "toss_s$ebnf$2", "symbols": [], "postprocess": function(d) {return null;}},
-    {"name": "toss_s", "symbols": ["letter_s", "toss_s$ebnf$2"], "postprocess": data => ({ value: data[0], crossing: data[1] !== null })},
-    {"name": "digit_s", "symbols": [/[02468]/], "postprocess": data => Number(data[0]) / 2},
-    {"name": "letter_s", "symbols": [/[acegikmoqsuwyACEGIKMOQSUWY]/], "postprocess": data => numerify(data[0]) / 2},
-    {"name": "crossing", "symbols": [{"literal":"x"}], "postprocess": id$1}
-]
-  , ParserStart: "siteswap"
+const declaration$3 = {
+
+   limits: {
+      degree: { min: 2, max: 2 },
+      greatestValue: { max: 61 }
+   },
+   hands: () => ["Left", "Right"],
+   parse: parse$1.bind(null, "compressed_sync"),
+   unparse: throws => throws.map( action => "(" + action.map( release => release.length === 1 ? unparseToss$1(release[0]) : `[${release.map(unparseToss$1).join("")}]` ) + ")"  ).join("")
+
 };
 
-const grammars = {
-   standard: grammar,
-   compressed: grammar$1
+const notations = {
+
+   "standard:async": declaration,
+   "standard:sync": declaration$1,
+   "standard": ["standard:async", "standard:sync"],
+   "compressed:async": declaration$2,
+   "compressed:sync": declaration$3,
+   "compressed": ["compressed:async", "compressed:sync"]
+
 };
 
-function parse( string, notation ){
+function parse( string, notations$$1 ){
 
-   const grammar$$1 = grammars[notation];
-   if( !grammar$$1 )
+   // Flatten composite notations ("standard" to "standard:async" and "standard:sync").
+   notations$$1 = notations$$1.reduce( (r, n) => r.concat(Array.isArray(notations[n]) ? notations[n] : n), [] );
+
+   if( notations$$1.some(notation => typeof notation !== "string" || !notations[notation]) )
       throw new Error("Unsupported notation.");
 
-   const parser = new Parser(grammar$$1.ParserRules, grammar$$1.parserStart);
-   const results = parser.feed(string).results;
-   if( !results.length )
-      throw new Error("Invalid syntax.");
-   return results[0];
+   // The throws can be passed directly to avoid parsing siteswaps that derived
+   // from others by manipulating their .throws.
+   if( typeof string === "object" ){
+      if( !validOutput(string) || notations$$1.length > 1 )
+         throw new Error("Invalid input.");
+      return { notation: notations$$1[0], throws: string };
+   }
+
+   // When passed a string, try parsing with passed notations, returning the 
+   // first successful result.
+   for( const notation of notations$$1 ){
+      const [throws] = notations[notation].parse(string);
+      if( throws && validOutput(throws) )
+         return { notation, throws };
+   }
+
+   throw new Error("Invalid syntax.");
 
 }
 
-function validateThrows( throws ){
 
-	if( !Array.isArray(throws) || !throws.length )
-		throw new Error("Invalid input.");
+function validOutput( throws ){
+   
+   if( !Array.isArray(throws) || !throws.length )
+      return false;
 
-	for( const action of throws ){
-		if( !Array.isArray(action) || action.length !== throws[0].length )
-			throw new Error("Invalid throw sequence.");
+   for( const action of throws ){
+      if( !Array.isArray(action) || action.length !== throws[0].length )
+         return false;
 
-		if( action.some(release => !Array.isArray(release) || !release.every(toss => toss instanceof Toss)) )
-			throw new Error("Invalid throw sequence.");
-	}
+      if( action.some(release => !Array.isArray(release) || !release.every(({ value, handFrom, handTo }) => value !== undefined && handFrom !== undefined && handTo !== undefined)) )
+         return false;
+   }
+
+   return true;
 
 }
-
-// Generated automatically by nearley
-// http://github.com/Hardmath123/nearley
-function id$2(x) {return x[0]; }
-var grammar$2 = {
-    Lexer: undefined,
-    ParserRules: [
-    {"name": "siteswap", "symbols": ["siteswap_a"], "postprocess": id$2},
-    {"name": "siteswap", "symbols": ["siteswap_s"], "postprocess": id$2},
-    {"name": "siteswap_a$macrocall$2", "symbols": ["action_a"]},
-    {"name": "siteswap_a$macrocall$1$ebnf$1", "symbols": []},
-    {"name": "siteswap_a$macrocall$1$ebnf$1$subexpression$1", "symbols": [{"literal":","}, "siteswap_a$macrocall$2"]},
-    {"name": "siteswap_a$macrocall$1$ebnf$1", "symbols": ["siteswap_a$macrocall$1$ebnf$1", "siteswap_a$macrocall$1$ebnf$1$subexpression$1"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
-    {"name": "siteswap_a$macrocall$1", "symbols": [{"literal":"["}, "siteswap_a$macrocall$2", "siteswap_a$macrocall$1$ebnf$1", {"literal":"]"}], "postprocess": data => [data[1][0], ...data[2].map(m => m[1][0])]},
-    {"name": "siteswap_a", "symbols": ["siteswap_a$macrocall$1"], "postprocess": data => data[0].join(",")},
-    {"name": "siteswap_s$macrocall$2", "symbols": ["action_s"]},
-    {"name": "siteswap_s$macrocall$1$ebnf$1", "symbols": []},
-    {"name": "siteswap_s$macrocall$1$ebnf$1$subexpression$1", "symbols": [{"literal":","}, "siteswap_s$macrocall$2"]},
-    {"name": "siteswap_s$macrocall$1$ebnf$1", "symbols": ["siteswap_s$macrocall$1$ebnf$1", "siteswap_s$macrocall$1$ebnf$1$subexpression$1"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
-    {"name": "siteswap_s$macrocall$1", "symbols": [{"literal":"["}, "siteswap_s$macrocall$2", "siteswap_s$macrocall$1$ebnf$1", {"literal":"]"}], "postprocess": data => [data[1][0], ...data[2].map(m => m[1][0])]},
-    {"name": "siteswap_s", "symbols": ["siteswap_s$macrocall$1"], "postprocess": data => data[0].join("")},
-    {"name": "action_a", "symbols": [{"literal":"["}, "release_a", {"literal":"]"}], "postprocess": data => data[1]},
-    {"name": "action_s", "symbols": [{"literal":"["}, "release_s", {"literal":","}, "release_s", {"literal":"]"}], "postprocess": data => "(" + data[1] + "," + data[3] + ")"},
-    {"name": "release_a$macrocall$2", "symbols": ["toss_a"]},
-    {"name": "release_a$macrocall$1$ebnf$1", "symbols": []},
-    {"name": "release_a$macrocall$1$ebnf$1$subexpression$1", "symbols": [{"literal":","}, "release_a$macrocall$2"]},
-    {"name": "release_a$macrocall$1$ebnf$1", "symbols": ["release_a$macrocall$1$ebnf$1", "release_a$macrocall$1$ebnf$1$subexpression$1"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
-    {"name": "release_a$macrocall$1", "symbols": [{"literal":"["}, "release_a$macrocall$2", "release_a$macrocall$1$ebnf$1", {"literal":"]"}], "postprocess": data => [data[1][0], ...data[2].map(m => m[1][0])]},
-    {"name": "release_a", "symbols": ["release_a$macrocall$1"], "postprocess": data => data[0].length > 1 ? "[" + data[0].join(",") + "]" : data[0][0]},
-    {"name": "release_s$macrocall$2", "symbols": ["toss_s"]},
-    {"name": "release_s$macrocall$1$ebnf$1", "symbols": []},
-    {"name": "release_s$macrocall$1$ebnf$1$subexpression$1", "symbols": [{"literal":","}, "release_s$macrocall$2"]},
-    {"name": "release_s$macrocall$1$ebnf$1", "symbols": ["release_s$macrocall$1$ebnf$1", "release_s$macrocall$1$ebnf$1$subexpression$1"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
-    {"name": "release_s$macrocall$1", "symbols": [{"literal":"["}, "release_s$macrocall$2", "release_s$macrocall$1$ebnf$1", {"literal":"]"}], "postprocess": data => [data[1][0], ...data[2].map(m => m[1][0])]},
-    {"name": "release_s", "symbols": ["release_s$macrocall$1"], "postprocess": data => data[0].length > 1 ? "[" + data[0].join(",") + "]" : data[0][0]},
-    {"name": "toss_a$string$1", "symbols": [{"literal":"{"}, {"literal":"\""}, {"literal":"v"}, {"literal":"a"}, {"literal":"l"}, {"literal":"u"}, {"literal":"e"}, {"literal":"\""}, {"literal":":"}], "postprocess": function joiner(d) {return d.join('');}},
-    {"name": "toss_a$string$2", "symbols": [{"literal":","}, {"literal":"\""}, {"literal":"h"}, {"literal":"a"}, {"literal":"n"}, {"literal":"d"}, {"literal":"F"}, {"literal":"r"}, {"literal":"o"}, {"literal":"m"}, {"literal":"\""}, {"literal":":"}], "postprocess": function joiner(d) {return d.join('');}},
-    {"name": "toss_a$string$3", "symbols": [{"literal":","}, {"literal":"\""}, {"literal":"h"}, {"literal":"a"}, {"literal":"n"}, {"literal":"d"}, {"literal":"T"}, {"literal":"o"}, {"literal":"\""}, {"literal":":"}], "postprocess": function joiner(d) {return d.join('');}},
-    {"name": "toss_a", "symbols": ["toss_a$string$1", "value", "toss_a$string$2", "hand_a", "toss_a$string$3", "hand_a", {"literal":"}"}], "postprocess": data => data[1]},
-    {"name": "toss_s$string$1", "symbols": [{"literal":"{"}, {"literal":"\""}, {"literal":"v"}, {"literal":"a"}, {"literal":"l"}, {"literal":"u"}, {"literal":"e"}, {"literal":"\""}, {"literal":":"}], "postprocess": function joiner(d) {return d.join('');}},
-    {"name": "toss_s$string$2", "symbols": [{"literal":","}, {"literal":"\""}, {"literal":"h"}, {"literal":"a"}, {"literal":"n"}, {"literal":"d"}, {"literal":"F"}, {"literal":"r"}, {"literal":"o"}, {"literal":"m"}, {"literal":"\""}, {"literal":":"}], "postprocess": function joiner(d) {return d.join('');}},
-    {"name": "toss_s$string$3", "symbols": [{"literal":","}, {"literal":"\""}, {"literal":"h"}, {"literal":"a"}, {"literal":"n"}, {"literal":"d"}, {"literal":"T"}, {"literal":"o"}, {"literal":"\""}, {"literal":":"}], "postprocess": function joiner(d) {return d.join('');}},
-    {"name": "toss_s", "symbols": ["toss_s$string$1", "value", "toss_s$string$2", "hand_s", "toss_s$string$3", "hand_s", {"literal":"}"}], "postprocess": data => (data[1] * 2) + (data[3] !== data[5] ? "x" : "")},
-    {"name": "hand_a", "symbols": [/[0]/], "postprocess": id$2},
-    {"name": "hand_a$string$1", "symbols": [{"literal":"n"}, {"literal":"u"}, {"literal":"l"}, {"literal":"l"}], "postprocess": function joiner(d) {return d.join('');}},
-    {"name": "hand_a", "symbols": ["hand_a$string$1"], "postprocess": id$2},
-    {"name": "hand_s", "symbols": [/[0-1]/], "postprocess": id$2},
-    {"name": "hand_s$string$1", "symbols": [{"literal":"n"}, {"literal":"u"}, {"literal":"l"}, {"literal":"l"}], "postprocess": function joiner(d) {return d.join('');}},
-    {"name": "hand_s", "symbols": ["hand_s$string$1"], "postprocess": id$2},
-    {"name": "value", "symbols": [/[0-9]/], "postprocess": data => Number(data[0])},
-    {"name": "value$ebnf$1", "symbols": [/[0-9]/]},
-    {"name": "value$ebnf$1", "symbols": ["value$ebnf$1", /[0-9]/], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
-    {"name": "value", "symbols": [/[1-9]/, "value$ebnf$1"], "postprocess": data => Number(data[0] + data[1].join(""))}
-]
-  , ParserStart: "siteswap"
-};
-
-// Generated automatically by nearley
-// http://github.com/Hardmath123/nearley
-function id$3(x) {return x[0]; }
-
-
-function alphify( digit ){
-  
-  if( digit < 10 )
-    return digit;
-
-  if( digit < 36 )
-    return String.fromCharCode("a".charCodeAt(0) + digit - 10);
-  
-  if( digit < 62 )
-    return String.fromCharCode("A".charCodeAt(0) + digit - 36);
-  
-}
-
-var grammar$3 = {
-    Lexer: undefined,
-    ParserRules: [
-    {"name": "siteswap", "symbols": ["siteswap_a"], "postprocess": id$3},
-    {"name": "siteswap", "symbols": ["siteswap_s"], "postprocess": id$3},
-    {"name": "siteswap_a$macrocall$2", "symbols": ["action_a"]},
-    {"name": "siteswap_a$macrocall$1$ebnf$1", "symbols": []},
-    {"name": "siteswap_a$macrocall$1$ebnf$1$subexpression$1", "symbols": [{"literal":","}, "siteswap_a$macrocall$2"]},
-    {"name": "siteswap_a$macrocall$1$ebnf$1", "symbols": ["siteswap_a$macrocall$1$ebnf$1", "siteswap_a$macrocall$1$ebnf$1$subexpression$1"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
-    {"name": "siteswap_a$macrocall$1", "symbols": [{"literal":"["}, "siteswap_a$macrocall$2", "siteswap_a$macrocall$1$ebnf$1", {"literal":"]"}], "postprocess": data => [data[1][0], ...data[2].map(m => m[1][0])]},
-    {"name": "siteswap_a", "symbols": ["siteswap_a$macrocall$1"], "postprocess": data => data[0].join("")},
-    {"name": "siteswap_s$macrocall$2", "symbols": ["action_s"]},
-    {"name": "siteswap_s$macrocall$1$ebnf$1", "symbols": []},
-    {"name": "siteswap_s$macrocall$1$ebnf$1$subexpression$1", "symbols": [{"literal":","}, "siteswap_s$macrocall$2"]},
-    {"name": "siteswap_s$macrocall$1$ebnf$1", "symbols": ["siteswap_s$macrocall$1$ebnf$1", "siteswap_s$macrocall$1$ebnf$1$subexpression$1"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
-    {"name": "siteswap_s$macrocall$1", "symbols": [{"literal":"["}, "siteswap_s$macrocall$2", "siteswap_s$macrocall$1$ebnf$1", {"literal":"]"}], "postprocess": data => [data[1][0], ...data[2].map(m => m[1][0])]},
-    {"name": "siteswap_s", "symbols": ["siteswap_s$macrocall$1"], "postprocess": data => data[0].join("")},
-    {"name": "action_a", "symbols": [{"literal":"["}, "release_a", {"literal":"]"}], "postprocess": data => data[1]},
-    {"name": "action_s", "symbols": [{"literal":"["}, "release_s", {"literal":","}, "release_s", {"literal":"]"}], "postprocess": data => "(" + data[1] + "," + data[3] + ")"},
-    {"name": "release_a$macrocall$2", "symbols": ["toss_a"]},
-    {"name": "release_a$macrocall$1$ebnf$1", "symbols": []},
-    {"name": "release_a$macrocall$1$ebnf$1$subexpression$1", "symbols": [{"literal":","}, "release_a$macrocall$2"]},
-    {"name": "release_a$macrocall$1$ebnf$1", "symbols": ["release_a$macrocall$1$ebnf$1", "release_a$macrocall$1$ebnf$1$subexpression$1"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
-    {"name": "release_a$macrocall$1", "symbols": [{"literal":"["}, "release_a$macrocall$2", "release_a$macrocall$1$ebnf$1", {"literal":"]"}], "postprocess": data => [data[1][0], ...data[2].map(m => m[1][0])]},
-    {"name": "release_a", "symbols": ["release_a$macrocall$1"], "postprocess": data => data[0].length > 1 ? "[" + data[0].join("") + "]" : data[0][0]},
-    {"name": "release_s$macrocall$2", "symbols": ["toss_s"]},
-    {"name": "release_s$macrocall$1$ebnf$1", "symbols": []},
-    {"name": "release_s$macrocall$1$ebnf$1$subexpression$1", "symbols": [{"literal":","}, "release_s$macrocall$2"]},
-    {"name": "release_s$macrocall$1$ebnf$1", "symbols": ["release_s$macrocall$1$ebnf$1", "release_s$macrocall$1$ebnf$1$subexpression$1"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
-    {"name": "release_s$macrocall$1", "symbols": [{"literal":"["}, "release_s$macrocall$2", "release_s$macrocall$1$ebnf$1", {"literal":"]"}], "postprocess": data => [data[1][0], ...data[2].map(m => m[1][0])]},
-    {"name": "release_s", "symbols": ["release_s$macrocall$1"], "postprocess": data => data[0].length > 1 ? "[" + data[0].join("") + "]" : data[0][0]},
-    {"name": "toss_a$string$1", "symbols": [{"literal":"{"}, {"literal":"\""}, {"literal":"v"}, {"literal":"a"}, {"literal":"l"}, {"literal":"u"}, {"literal":"e"}, {"literal":"\""}, {"literal":":"}], "postprocess": function joiner(d) {return d.join('');}},
-    {"name": "toss_a$string$2", "symbols": [{"literal":","}, {"literal":"\""}, {"literal":"h"}, {"literal":"a"}, {"literal":"n"}, {"literal":"d"}, {"literal":"F"}, {"literal":"r"}, {"literal":"o"}, {"literal":"m"}, {"literal":"\""}, {"literal":":"}], "postprocess": function joiner(d) {return d.join('');}},
-    {"name": "toss_a$string$3", "symbols": [{"literal":","}, {"literal":"\""}, {"literal":"h"}, {"literal":"a"}, {"literal":"n"}, {"literal":"d"}, {"literal":"T"}, {"literal":"o"}, {"literal":"\""}, {"literal":":"}], "postprocess": function joiner(d) {return d.join('');}},
-    {"name": "toss_a", "symbols": ["toss_a$string$1", "value", "toss_a$string$2", "hand_a", "toss_a$string$3", "hand_a", {"literal":"}"}], "postprocess": data => alphify(data[1])},
-    {"name": "toss_s$string$1", "symbols": [{"literal":"{"}, {"literal":"\""}, {"literal":"v"}, {"literal":"a"}, {"literal":"l"}, {"literal":"u"}, {"literal":"e"}, {"literal":"\""}, {"literal":":"}], "postprocess": function joiner(d) {return d.join('');}},
-    {"name": "toss_s$string$2", "symbols": [{"literal":","}, {"literal":"\""}, {"literal":"h"}, {"literal":"a"}, {"literal":"n"}, {"literal":"d"}, {"literal":"F"}, {"literal":"r"}, {"literal":"o"}, {"literal":"m"}, {"literal":"\""}, {"literal":":"}], "postprocess": function joiner(d) {return d.join('');}},
-    {"name": "toss_s$string$3", "symbols": [{"literal":","}, {"literal":"\""}, {"literal":"h"}, {"literal":"a"}, {"literal":"n"}, {"literal":"d"}, {"literal":"T"}, {"literal":"o"}, {"literal":"\""}, {"literal":":"}], "postprocess": function joiner(d) {return d.join('');}},
-    {"name": "toss_s", "symbols": ["toss_s$string$1", "value", "toss_s$string$2", "hand_s", "toss_s$string$3", "hand_s", {"literal":"}"}], "postprocess": data => alphify(data[1] * 2) + (data[3] !== data[5] ? "x" : "")},
-    {"name": "hand_a", "symbols": [/[0]/], "postprocess": id$3},
-    {"name": "hand_a$string$1", "symbols": [{"literal":"n"}, {"literal":"u"}, {"literal":"l"}, {"literal":"l"}], "postprocess": function joiner(d) {return d.join('');}},
-    {"name": "hand_a", "symbols": ["hand_a$string$1"], "postprocess": id$3},
-    {"name": "hand_s", "symbols": [/[0-1]/], "postprocess": id$3},
-    {"name": "hand_s$string$1", "symbols": [{"literal":"n"}, {"literal":"u"}, {"literal":"l"}, {"literal":"l"}], "postprocess": function joiner(d) {return d.join('');}},
-    {"name": "hand_s", "symbols": ["hand_s$string$1"], "postprocess": id$3},
-    {"name": "value", "symbols": [/[0-9]/], "postprocess": data => Number(data[0])},
-    {"name": "value$ebnf$1", "symbols": [/[0-9]/]},
-    {"name": "value$ebnf$1", "symbols": ["value$ebnf$1", /[0-9]/], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
-    {"name": "value", "symbols": [/[1-9]/, "value$ebnf$1"], "postprocess": data => Number(data[0] + data[1].join(""))}
-]
-  , ParserStart: "siteswap"
-};
-
-const grammars$1 = {
-   standard: grammar$2,
-   compressed: grammar$3
-};
 
 function toString( notation = this.notation ){
 
    if( !this.valid )
-      throw new Error("Can't call `.toString` on an invalid siteswap.")
+      throw new Error("Invalid siteswap.");
 
-   const grammar = grammars$1[notation];
-   if( !grammar )
+   if( !notations[notation] )
       throw new Error("Unsupported notation.");
 
-   const parser = new Parser(grammar.ParserRules, grammar.parserStart);
-   const string = JSON.stringify(this.throws);
-   const results = parser.feed(string).results;
-   return results[0];
+   // Check if they're compatible.
+   if( this.notation !== notation ){
+      const limitsFrom = notations[this.notation].limits || {};
+      const limitsTo = notations[notation].limits || {};
+      const properties = Object.keys(limitsTo);
+
+      if( properties.some(property => limitsTo[property].min > limitsFrom[property].max || limitsTo[property].max < limitsFrom[property].min) )
+         throw new Error("Incompatible notations.");
+
+      if( properties.some(property => this[property] > limitsTo[property].max || this[property] < limitsTo[property].min) )
+         throw new Error("This siteswap can't be converted to the target notation.");
+   }
+
+   return notations[notation].unparse(this.throws);
 
 }
 
 // A juggle is either a siteswap or a transition between states. It 
-// validates the throw and hand sequences' structure. If legacy mode,
-// it assigns default hands and mirrors the throw sequence (after
-// structure validation).
+// validates the throw and hand sequences' structure.
 
 // Transitions don't do much at the moment (they only appear in
-// `.composition`), their existence will be justified once the
-// graph and generation come to life. They are also expected to
-// be used for connecting siteswaps (going from one to another).
+// `.composition`), their existence will be justified with graph
+// and siteswap generation. Also transitioning between siteswaps.
 
 class Juggle {
    
-   constructor( input, notation = "compressed" ){
+   constructor( string, notations = "compressed" ){
 
-      this.input = input;
-      this.notation = notation;
+      try {
 
-      try{
+         const { throws, notation } = this.parse(string, [].concat(notations));
+         const values = throws.reduce((result, action) => result.concat( ...action.map(release => release.map(({value}) => value)) ), []);
 
-         const throws = typeof input === "string" ? this.parse(input, notation) : input;
-         this.validateThrows(throws);
-
-         const values = throws.reduce((result, action) => Array.prototype.concat.apply(result, action.map(release => release.map(toss => toss.value))), []);
-         
-         // Assign properties.
-         this.throws        = throws;
+         this.notation      = notation;
          this.valid         = true;
+         this.throws        = throws;
          this.degree        = throws[0].length;
          this.props         = values.reduce((sum, value) => sum + value, 0) / throws.length;
-         this.multiplex     = throws.reduce( (max, action) => Math.max.apply(null, [max, ...action.map(release => release.length)]), 0 );
-         this.greatestValue = Math.max.apply(null, values);
+         this.multiplex     = throws.reduce((max, action) => Math.max( max, ...action.map(({length}) => length) ), 0);
+         this.greatestValue = Math.max(...values);
 
       }
       catch(e){
 
          this.valid = false;
-         this.message = e.message;
+         this.notation = notations;
+         this.error = e.message;
 
       }
 
@@ -1171,7 +1132,6 @@ class Juggle {
 }
 
 Juggle.prototype.parse = parse;
-Juggle.prototype.validateThrows = validateThrows;
 Juggle.prototype.toString = toString;
 
 class Transition extends Juggle {
@@ -1228,6 +1188,21 @@ function excitify(){
 
 }
 
+function alphabetic( degree ){
+
+  const offset = "A".charCodeAt(0);
+  const count = "Z".charCodeAt(0) - offset + 1;
+
+  return range(degree).map( (hand, i) => range(Math.floor(i / count)).map(key => String.fromCharCode(offset + key % count)).concat(String.fromCharCode(offset + i % count)).join("") );
+  
+}
+
+function range( n ){
+
+  return [...Array(n).keys()];
+  
+}
+
 function log(){
 
    if( !this.valid ){
@@ -1235,37 +1210,89 @@ function log(){
       return;
    }
 
+   const lines = [];
+   let hands;
+
+   lines.push(`siteswap\n ${this.toString().replace(/\n/g, "\n ")}`);
+   lines.push(`notation\n ${this.notation}`);
+   lines.push(`degree\n ${this.degree}`);
+   lines.push(`props\n ${this.props}`);
+   lines.push(`period\n ${this.period}`);
+   lines.push(`full period\n ${this.fullPeriod}`);
+   lines.push(`multiplex\n ${this.multiplex}`);
+   lines.push(`prime\n ${this.prime}`);
+   lines.push(`ground state\n ${this.groundState}`);
+   
+
    if( this.degree > 2 ){
-      console.log("No supported notation supports more than two hands.");
-      return;
+      hands = alphabetic(this.degree);
+
+      lines.push("hand labels");
+      const oldLabels = notations[this.notation].hands(this.degree);
+      const paddings = [];
+      paddings.push( this.degree.toString().length + 1 );
+      paddings.push( Math.max(...oldLabels.map(({length}) => length)) );
+      paddings.push( Math.max(...hands.map(({length}) => length)) );
+      for( let i = 0; i < this.degree; i++ ){
+         const num   = pad(i + 1, paddings[0]);
+         const hand1 = pad(hands[i], paddings[2]);
+         const hand2 = pad(oldLabels[i], paddings[1]);
+         lines.push( `${num}| ${hand1}${this.notation !== "multihand" ? ` (${hand2})` : ""}` );
+      }
+
    }
 
-   const hands = ["l", "r"];
-   const lines = [];
+   lines.push("throw sequence"); {
+      const matrix = [];
+      for( const [i, action] of this.throws.entries() ){
+         const releases = action.map( (release) => {
+            let string;
+            if( this.degree <= 2 )
+               string = release.map( ({value, handFrom, handTo}) => `${value}${handFrom !== handTo ? "x" : ""}` ).join(",");
+            else
+               string = release.map( ({value, handFrom, handTo}) => `${value}${hands[handTo]}` ).join(",");
+            return release.length === 1 ? string : `[${string}]`;
+         } );
+         matrix.push( [`${i + 1}|`, ...releases] );
+      }
 
-   lines.push("siteswap\n " + this.toString());
-   lines.push("props\n " + this.props);
-   lines.push("hands\n " + this.degree);
-   lines.push("period\n " + this.period);
-   lines.push("full period\n " + this.fullPeriod);
-   lines.push("multiplex\n " + this.multiplex);
-   lines.push("prime\n " + this.prime);
-   lines.push("ground state\n " + this.groundState);
+      const paddings = [];
+      for( let i = 0; i < matrix[0].length; i++ ){
+         paddings.push( Math.max(...matrix.map(row => row[i].length + 1)) );
+      }
+
+      lines.push( ...matrix.map(row => row.map((string, i) => pad(string, paddings[i])).join("")) );
+   }
    
-   lines.push("throw sequence");
-   this.throws.forEach( (action, i) => action.forEach((release, j) => lines.push(" " + (i + 1) + (this.degree === 1 ? "" : "-" + hands[j]) + ": [" + release.map( toss => toss.value + (toss.value === 0 || this.degree === 1 ? "" : hands[toss.handTo]) ).join(",") + "]")) );
+   lines.push("states"); {
+      const padding = this.period.toString().length + 1;
+      for( const [i, state] of this.states.entries() ){
+         for( const [j, handState] of state.schedule.entries() )
+            lines.push( `${pad(j ? " " : (i + 1), padding)}| [${handState.join(",")}]` );
+      }
+   }
 
-   lines.push("states");
-   this.states.forEach( (state, i) => state.schedule.forEach((handState, j) => lines.push(" " + (i + 1) + (this.degree === 1 ? "" : "-" + hands[j]) + ": [" + handState.join(",") + "]")) );
+   lines.push("strict states"); {
+      const padding = this.fullPeriod.toString().length + 1;
+      for( const [i, state] of this.strictStates.entries() ){
+         for( const [j, handState] of state.schedule.entries() )
+            lines.push( `${pad(j ? "" : (i + 1), padding)}| [${handState.map(balls => `[${balls.length ? balls.join(",") : "-"}]`).join(",")}]` );
+      }
+   }
 
-   lines.push("strict states");
-   this.strictStates.forEach( (state, i) => state.schedule.forEach((handState, j) => lines.push(" " + (i + 1) + (this.degree === 1 ? "" : "-" + hands[j]) + ": [" + handState.map(balls => "[" + (!balls.length ? "-" : balls.join(",")) + "]").join(",") + "]" )) );
+   lines.push("orbits"); {
+      const padding = this.orbits.length.toString().length + 1;
+      for( const [i, orbit] of this.orbits.entries() ){
+         lines.push( ...orbit.toString().split("\n").map((row, j) => `${pad(j ? "" : (i + 1), padding)}| ${row}`) );
+      }
+   }
 
-   lines.push("orbits");
-   this.orbits.forEach( (orbit, i) => lines.push(" " + (i + 1) + ": " + orbit.toString()) );
-
-   lines.push("composition");
-   this.composition.forEach( (prime, i) => lines.push( (prime instanceof Siteswap ? " siteswap: " : " transition: ") + prime.toString()) );
+   lines.push("composition"); {
+      const padding = this.composition.length.toString().length + 1;
+      for( const [i, prime] of this.composition.entries() ){
+         lines.push( ...prime.toString().split("\n").map((row, j) => `${pad(j ? "" : (i + 1), padding)}| ${row}`) );
+      }
+   }
 
    lines.push(" ");
 
@@ -1273,11 +1300,22 @@ function log(){
 
 }
 
+
+function pad( string, length ){
+   
+   if( typeof string !== "string" )
+      string = string.toString();
+
+   length++;
+   return string.length >= length ? string : `${Array(length - string.length).join(" ")}${string}`;
+
+}
+
 class Siteswap extends Juggle {
    
-   constructor( input, notation ){
+   constructor( input, notations ){
 
-      super(input, notation);
+      super(input, notations);
 
       if( !this.valid )
          return this;
@@ -1291,12 +1329,13 @@ class Siteswap extends Juggle {
       catch(e){
 
          // Unset properties set in `Juggle`.
-         const keys = Object.keys(this).filter(key => key !== "input");
+         const keys = Object.keys(this);
          for( const key of keys )
             delete this[key];
 
          this.valid = false;
-         this.message = e.message;
+         this.notation = notations;
+         this.error = e.message;
          return this;
          
       }
@@ -1315,8 +1354,8 @@ class Siteswap extends Juggle {
       //  this.multiplex
       //  this.string
 
-      this.states        = this.schedulise( this.throws, false );
-      this.strictStates  = this.schedulise( this.throws, true );
+      this.states        = this.schedulise(this.throws, false);
+      this.strictStates  = this.schedulise(this.throws, true);
       this.orbits        = this.orbitise(this.throws, this.notation);
       this.composition   = this.decompose(this.states, this.throws, this.notation);
       
