@@ -1,7 +1,6 @@
 
-import { notations }  from "./Juggle.notations";
+import { notations }  from "./notations";
 import { alphabetic } from "./alphabetic";
-
 
 
 function log(){
@@ -111,7 +110,6 @@ function pad( string, length ){
    return string.length >= length ? string : `${Array(length - string.length).join(" ")}${string}`;
 
 }
-
 
 
 export { log };

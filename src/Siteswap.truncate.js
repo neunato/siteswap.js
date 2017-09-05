@@ -43,7 +43,7 @@ function truncate( throws ){
             }
             if( i + j === throws.length ){
                throws.length = i;
-               return throws;
+               return;
             }
          }
       }

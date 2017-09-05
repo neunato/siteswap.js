@@ -61,7 +61,6 @@ integer
    ->  [0-9]                           {% ([match]) => Number(match) %}
     |  [1-9] [0-9]:+                   {% ([first, rest]) => Number([first, ...rest].join("")) %}
 
-
 integer_even
    ->  [02468]                         {% ([match]) => Number(match) %}
     |  [1-9] [0-9]:* [02468]           {% ([first, rest, last]) => Number([first, ...rest, last].join("")) %}
@@ -107,6 +106,7 @@ compressed_sync
 compressed_sync_toss
    ->  digit_even cross:?                                       {% ([value, cross]) => ({ value,                  cross: !!cross }) %}
     |  letter_even cross:?                                      {% ([value, cross]) => ({ value: numerify(value), cross: !!cross }) %}
+
 
 
 

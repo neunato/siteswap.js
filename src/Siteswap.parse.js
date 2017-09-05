@@ -1,5 +1,5 @@
 
-import { notations as declarations } from "./Juggle.notations";
+import { notations as declarations } from "./notations";
 
 
 function parse( string, notations ){

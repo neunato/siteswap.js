@@ -1,5 +1,4 @@
 
-import { Toss }     from "./Toss";
 import { Siteswap } from "./Siteswap";
 
 
@@ -47,7 +46,7 @@ function orbitise( throws, notation ){
 	for( let i = 0; i < throws.length; i++ ){
 		const action = throws[i];
 		for( const orbit of orbits )
-			orbit.push( action.map( (release, j) => map[i][j] === orbit ? release : [new Toss(0, null, null)] ) );
+			orbit.push( action.map( (release, j) => map[i][j] === orbit ? release : [{ value: 0, handFrom: j, handTo: j }] ) );
 	}
 
 	return orbits.map( orbit => new Siteswap(orbit, notation) );

@@ -55,7 +55,7 @@ __`.strictStates`__ &raquo; array of states like `{ schedule: array, strict: boo
 
 __`.orbits`__ &raquo; array of siteswap's orbits which are themselves `Siteswap`s.
 
-__`.composition`__ &raquo; array of prime `Siteswap`s and `Transition`s between them which the siteswap is consisted of.
+__`.composition`__ &raquo; array of prime `Siteswap`s the siteswap is consisted of.
 
 __`.toString( notation )`__ &raquo; returns a string representing the siteswap in a given notation, defaulting to the one siteswap was parsed with.
 
@@ -70,7 +70,6 @@ Example
 ```javascript
 const siteswap = new Siteswap("753")
 siteswap.valid                      // true
-siteswap.input                      // "753"
 siteswap.notation                   // "compressed"
 siteswap.degree                     // 1
 siteswap.props                      // 5

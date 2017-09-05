@@ -60,7 +60,7 @@ function assertSiteswap( string, siteswap, properties ){
    // and `assert.deepStrictEqual()` compares `.toString()`s, which are 
    // implemented by the notation we're testing itself.
 
-   // One solution would be to call `assertSiteswap()` for each juggle in
+   // One solution would be to call `assertSiteswap()` for each siteswap in
    // orbits/composition, but that would break on circular references unless
    // some sort of a cache is used.
 

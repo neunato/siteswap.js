@@ -70,7 +70,7 @@ function truncate( throws ){
             }
             if( i + j === throws.length ){
                throws.length = i;
-               return throws;
+               return;
             }
          }
       }
@@ -281,14 +281,6 @@ function schedulise( throws, strict ){
 
 }
 
-function Toss( value, handFrom, handTo ){
-
-	this.value = value;
-	this.handFrom = handFrom;
-	this.handTo = handTo;
-
-}
-
 function mark( orbit, map, throws, i, j ){
 
 	const release = throws[i][j];
@@ -333,10 +325,55 @@ function orbitise( throws, notation ){
 	for( let i = 0; i < throws.length; i++ ){
 		const action = throws[i];
 		for( const orbit of orbits )
-			orbit.push( action.map( (release, j) => map[i][j] === orbit ? release : [new Toss(0, null, null)] ) );
+			orbit.push( action.map( (release, j) => map[i][j] === orbit ? release : [{ value: 0, handFrom: j, handTo: j }] ) );
 	}
 
 	return orbits.map( orbit => new Siteswap(orbit, notation) );
+
+}
+
+// This is far from efficient as states are repeatedly compared with `.equals()`. I could map states to numbers,
+// but that would be a temporary solution until the graph content arrives. Then, a map/array of known states will 
+// be used, and `.equals()` will deal with references, not deep comparisons.
+
+// Also, should siteswap repetitions be included in `.composition`? Right now, they are.
+
+function decompose( states, throws, notation ){
+
+	const composition = [];
+
+   let last = 0;
+	for( let to = 1; to <= states.length; to++ ){
+
+		for( let from = to - 1; from >= last; from-- ){
+			if( states[to % states.length].equals(states[from]) ){
+
+            // Prime siteswap.
+				if( from === 0 && to === states.length ){
+					return [this];
+				}
+
+            // Composite siteswaps, no transition.
+            if( last === from ){
+               composition.push( new Siteswap(throws.slice(from, to), notation) );
+               last = to;
+               break;
+            }
+
+            // Composite siteswaps with transition.
+            const strippedThrows = [...throws];
+            const strippedStates = [...states];
+
+            composition.push( new Siteswap(strippedThrows.splice(from, to - from), notation) );
+            strippedStates.splice(from, to - from);
+
+            return composition.concat( decompose( strippedStates.slice(last), strippedThrows.slice(last), notation ) );
+			}
+		}
+
+	}
+
+	return composition;
 
 }
 
@@ -1014,12 +1051,12 @@ const declaration$3 = {
 
 const notations = {
 
-   "standard:async": declaration,
-   "standard:sync": declaration$1,
-   "standard": ["standard:async", "standard:sync"],
+   "standard:async":   declaration,
+   "standard:sync":    declaration$1,
+   "standard":         ["standard:async", "standard:sync"],
    "compressed:async": declaration$2,
-   "compressed:sync": declaration$3,
-   "compressed": ["compressed:async", "compressed:sync"]
+   "compressed:sync":  declaration$3,
+   "compressed":       ["compressed:async", "compressed:sync"]
 
 };
 
@@ -1091,100 +1128,6 @@ function toString( notation = this.notation ){
    }
 
    return notations[notation].unparse(this.throws);
-
-}
-
-// A juggle is either a siteswap or a transition between states. It 
-// validates the throw and hand sequences' structure.
-
-// Transitions don't do much at the moment (they only appear in
-// `.composition`), their existence will be justified with graph
-// and siteswap generation. Also transitioning between siteswaps.
-
-class Juggle {
-   
-   constructor( string, notations = "compressed" ){
-
-      try {
-
-         const { throws, notation } = this.parse(string, [].concat(notations));
-         const values = throws.reduce((result, action) => result.concat( ...action.map(release => release.map(({value}) => value)) ), []);
-
-         this.notation      = notation;
-         this.valid         = true;
-         this.throws        = throws;
-         this.degree        = throws[0].length;
-         this.props         = values.reduce((sum, value) => sum + value, 0) / throws.length;
-         this.multiplex     = throws.reduce((max, action) => Math.max( max, ...action.map(({length}) => length) ), 0);
-         this.greatestValue = Math.max(...values);
-
-      }
-      catch(e){
-
-         this.valid = false;
-         this.notation = notations;
-         this.error = e.message;
-
-      }
-
-   }
-
-}
-
-Juggle.prototype.parse = parse;
-Juggle.prototype.toString = toString;
-
-class Transition extends Juggle {
-
-	constructor( input, notation, stateFrom, stateTo ){
-
-	  super(input, notation);
-
-	  if( !this.valid )
-	     return this;
-
-	  this.stateFrom = stateFrom;
-	  this.stateTo = stateTo;
-
-	}
-
-}
-
-function decompose( states, throws, notation ){
-
-	const composition = [];
-
-	let last = 0;
-	for( let to = 1; to <= states.length; to++ ){
-
-		for( let from = to - 1; from >= last; from-- ){
-			if( states[to % states.length].equals(states[from]) ){
-				if( from === 0 && to === states.length ){
-					return [this];
-				}
-
-				if( from > last ){
-					composition.push( new Transition(throws.slice(last, from), notation, states[last], states[from]) );
-				}
-				composition.push( new Siteswap(throws.slice(from, to), notation) );
-				last = to;
-				break;
-			}
-		}
-
-	}
-
-	if( last !== states.length ){
-		composition.push( new Transition(throws.slice(last), notation) );
-	}
-
-	return composition;
-
-}
-
-function excitify(){
-   
-   return this.states.some( state => state.ground );
 
 }
 
@@ -1311,70 +1254,56 @@ function pad( string, length ){
 
 }
 
-class Siteswap extends Juggle {
+class Siteswap {
    
-   constructor( input, notations ){
-
-      super(input, notations);
-
-      if( !this.valid )
-         return this;
+   constructor( string, notations = "compressed" ){
 
       try{
+         const { throws, notation } = this.parse(string, [].concat(notations));
+         this.validate(throws);
+         this.truncate(throws);
 
-         this.validate(this.throws);
-         this.valid = true;
-
+         this.valid         = true;
+         this.notation      = notation;
+         this.throws        = throws;
       }
       catch(e){
-
-         // Unset properties set in `Juggle`.
-         const keys = Object.keys(this);
-         for( const key of keys )
-            delete this[key];
-
          this.valid = false;
          this.notation = notations;
          this.error = e.message;
          return this;
-         
-      }
+      }      
+      
 
+      const values       = this.throws.reduce((result, action) => result.concat( ...action.map(release => release.map(({value}) => value)) ), []);
 
-      // Truncate throw sequence repetitions before anything else.
-      this.truncate(this.throws);
-
-
-      // Set in `Juggle`:
-      //  this.hands
-      //  this.throws
-      //  this.degree
-      //  this.props
-      //  this.greatestValue
-      //  this.multiplex
-      //  this.string
+      this.degree        = this.throws[0].length;
+      this.props         = values.reduce((sum, value) => sum + value) / this.throws.length;
+      this.multiplex     = this.throws.reduce((max, action) => Math.max( max, ...action.map(({length}) => length) ), 0);
+      this.greatestValue = Math.max(...values);
 
       this.states        = this.schedulise(this.throws, false);
       this.strictStates  = this.schedulise(this.throws, true);
       this.orbits        = this.orbitise(this.throws, this.notation);
       this.composition   = this.decompose(this.states, this.throws, this.notation);
-      
+
       this.period        = this.states.length;
       this.fullPeriod    = this.strictStates.length;
+      this.groundState   = this.states.some(({ground}) => ground);
       this.prime         = this.composition.length === 1;
-
-      this.groundState   = this.excitify();
 
    }
 
 }
 
+
 Siteswap.prototype.validate     = validate;
 Siteswap.prototype.truncate     = truncate;
 Siteswap.prototype.schedulise   = schedulise;
-Siteswap.prototype.excitify     = excitify;
 Siteswap.prototype.orbitise     = orbitise;
 Siteswap.prototype.decompose    = decompose;
+Siteswap.prototype.parse        = parse;
+Siteswap.prototype.toString     = toString;
 Siteswap.prototype.log          = log;
 
 module.exports = Siteswap;
