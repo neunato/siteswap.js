@@ -18,10 +18,10 @@ release_[toss, sep]
 
 
 async[release, sep]
-   ->  separated[$release, $sep]                           {% id %}
+   ->  trim[separated[$release, $sep]]                     {% id %}
 
 async_[release, sep]
-   ->  separated_[$release, $sep]                          {% id %}
+   ->  trim[separated_[$release, $sep]]                    {% id %}
 
 
 sync_action[release, sep]
@@ -32,14 +32,38 @@ sync_action_[release, sep]
 
 
 sync[release, sep]
-   ->  sync_action[$release, $sep]:+ "*":?                 {% ([actions, mirrored])   => mirrored ? mirror(actions) : actions %}
+   ->  trim[(sync_action[$release, $sep]:+ "*":?)]                  {% ([[actions, mirrored]])   => mirrored ? mirror(actions) : actions %}
 
 sync_[release, sep]
-   ->  separated[sync_action_[$release, $sep], _] _ "*":?  {% ([actions, , mirrored]) => mirrored ? mirror(actions) : actions %}
+   ->  trim[(separated[sync_action_[$release, $sep], _] _ "*":?)]   {% ([[actions, , mirrored]]) => mirrored ? mirror(actions) : actions %}
+
+
+passing_[siteswap]
+   ->  trim[("<" $siteswap ("|" $siteswap):+ ">")]           {% ([[, [first], rest]]) => [first, ...rest.map(([,[match]]) => match)] %}
+
+passing_two_[siteswap]
+   ->  trim[("<" $siteswap "|" $siteswap ">")]               {% ([[, [first], , [second]]]) => [first, second] %}
+
+passing_async_toss[pass]
+   ->  integer $pass:?                                            {% ([value, pass]) => ({ value, pass: pass ? pass[0] : false }) %}
+
+passing_sync_toss[pass]
+   ->  integer_even extract[$pass, cross]                         {% ([value, [pass, cross]]) => ({ value, pass: pass ? pass[0] : false, cross }) %}
+
+
+
+
 
 
 trim[e]
    ->  _ $e _                                              {% ([, [match]]) => match %}
+
+extract[a, b]
+   ->  null                                                {% ()             => [false, false] %}
+    |  $a                                                  {% ([[match]])    => [match, false] %}
+    |  $b                                                  {% ([[match]])    => [false, match] %}
+    |  $a $b                                               {% ([[m1], [m2]]) => [m1, m2] %}
+    |  $b $a                                               {% ([[m1], [m2]]) => [m2, m1] %}
 
 
 
@@ -68,6 +92,12 @@ integer_even
 cross
    ->  "x"                             {% () => true %}
 
+crosspass
+   ->  "p"                             {% () => true %}
+
+pass
+   ->  "p" integer                     {% ([, target]) => target %}
+
 _
    ->  " ":*                           {% () => null %}
 
@@ -76,37 +106,49 @@ _
 # Grammars
 
 standard_async
-   ->  trim[async_[release_[standard_async_toss, ","], ","]]    {% ([throws])  => finaliseAsync(throws) %}
-    |  trim[async_[release_[standard_async_toss, " "], " "]]    {% ([throws])  => finaliseAsync(throws) %}
+   ->  async_[release_[standard_async_toss, ","], ","]           {% ([throws])  => finaliseAsync(throws) %}
+    |  async_[release_[standard_async_toss, " "], " "]           {% ([throws])  => finaliseAsync(throws) %}
 
 standard_async_toss
-   -> integer                                                   {% ([value]) => ({ value }) %}
+   -> integer                                                    {% ([value]) => ({ value }) %}
 
 
 standard_sync
-   ->  trim[sync_[release_[standard_sync_toss, ","], ","]]      {% ([throws]) => finaliseSync(throws) %}
-    |  trim[sync_[release_[standard_sync_toss, " "], " "]]      {% ([throws]) => finaliseSync(throws) %}
+   ->  sync_[release_[standard_sync_toss, ","], ","]             {% ([throws]) => finaliseSync(throws) %}
+    |  sync_[release_[standard_sync_toss, " "], " "]             {% ([throws]) => finaliseSync(throws) %}
 
 standard_sync_toss
-   ->  integer_even cross:?                                     {% ([value, cross]) => ({ value: value, cross: !!cross }) %}
+   ->  integer_even cross:?                                      {% ([value, cross]) => ({ value, cross: !!cross }) %}
 
 
 compressed_async
-   ->  trim[async[release[compressed_async_toss, null], null]]  {% ([throws]) => finaliseAsync(throws) %}
+   ->  async[release[compressed_async_toss, null], null]         {% ([throws]) => finaliseAsync(throws) %}
 
 compressed_async_toss
-   ->  digit                                                    {% ([value]) => ({ value }) %}
-    |  letter                                                   {% ([value]) => ({ value: numerify(value) }) %}
+   ->  digit                                                     {% ([value]) => ({ value }) %}
+    |  letter                                                    {% ([value]) => ({ value: numerify(value) }) %}
 
 
 compressed_sync
-   ->  trim[sync[release[compressed_sync_toss, null], ","]]     {% ([throws]) => finaliseSync(throws) %}
-    |  trim[sync[release[compressed_sync_toss, null], null]]    {% ([throws]) => finaliseSync(throws) %}
+   ->  sync[release[compressed_sync_toss, null], ","]            {% ([throws]) => finaliseSync(throws) %}
+    |  sync[release[compressed_sync_toss, null], null]           {% ([throws]) => finaliseSync(throws) %}
 
 compressed_sync_toss
-   ->  digit_even cross:?                                       {% ([value, cross]) => ({ value,                  cross: !!cross }) %}
-    |  letter_even cross:?                                      {% ([value, cross]) => ({ value: numerify(value), cross: !!cross }) %}
+   ->  digit_even cross:?                                        {% ([value, cross]) => ({ value,                  cross: !!cross }) %}
+    |  letter_even cross:?                                       {% ([value, cross]) => ({ value: numerify(value), cross: !!cross }) %}
 
+
+passing_async
+   ->  passing_[async_[release_[passing_async_toss[pass], ","], ","]]            {% ([siteswaps]) => finalisePassingAsync(siteswaps) %}
+    |  passing_[async_[release_[passing_async_toss[pass], " "], " "]]            {% ([siteswaps]) => finalisePassingAsync(siteswaps) %}
+    |  passing_two_[async_[release_[passing_async_toss[crosspass], ","], ","]]   {% ([siteswaps]) => finalisePassingAsync(siteswaps) %}
+    |  passing_two_[async_[release_[passing_async_toss[crosspass], " "], " "]]   {% ([siteswaps]) => finalisePassingAsync(siteswaps) %}
+
+passing_sync
+   ->  passing_[sync_[release_[passing_sync_toss[pass], ","], ","]]              {% ([siteswaps]) => finalisePassingSync(siteswaps) %}
+    |  passing_[sync_[release_[passing_sync_toss[pass], " "], " "]]              {% ([siteswaps]) => finalisePassingSync(siteswaps) %}
+    |  passing_two_[sync_[release_[passing_sync_toss[crosspass], ","], ","]]     {% ([siteswaps]) => finalisePassingSync(siteswaps) %}
+    |  passing_two_[sync_[release_[passing_sync_toss[crosspass], " "], " "]]     {% ([siteswaps]) => finalisePassingSync(siteswaps) %}
 
 
 
@@ -115,7 +157,7 @@ compressed_sync_toss
 
 function mirror( throws ){
 
-    return throws.concat( throws.map( action => action.map( release => release.map(({ value, cross }) => ({ value, cross })) ).reverse() ));
+   return throws.concat( throws.map( action => action.map( release => release.map(({ value, cross }) => ({ value, cross })) ).reverse() ));
 
 }
 
@@ -130,13 +172,83 @@ function numerify( letter ){
 
 function finaliseAsync( throws ){
 
-    return throws.map( ([release]) => [release.map( ({value}) => ({ value, handFrom: 0, handTo: 0 }) )] );
+   return throws.map( ([release]) => [release.map( ({value}) => ({ value, handFrom: 0, handTo: 0 }) )] );
 
 }
 
 function finaliseSync( throws ){
 
-    return throws.map( action => action.map((release, i) => release.map( ({value, cross}) => ({ value: value / 2, handFrom: i, handTo: cross ? 1 - i : i }) )) );
+   return throws.map( action => action.map((release, i) => release.map( ({value, cross}) => ({ value: value / 2, handFrom: i, handTo: cross ? 1 - i : i }) )) );
+
+}
+
+function finalisePassingAsync( siteswaps ){
+
+   const choice = new Choice();
+   const period = siteswaps.map(({length}) => length).reduce(lcm);
+   const throws = [];
+   for( let i = 0; i < period; i++ ){
+      const action = siteswaps.map(actions => actions[i % actions.length][0]).map(function(release, handFrom){
+         return release.map(function({value, pass}){
+            if( pass ){
+               choice.pick(typeof pass);
+               if( pass === true )
+                  pass = 2 - handFrom;
+            }
+            const handTo = !pass ? handFrom : (pass - 1);
+            return { value, handFrom, handTo };
+         })
+      });
+      throws.push( action );
+   }
+   return throws;
+
+}
+
+function finalisePassingSync( siteswaps ){
+
+   const choice = new Choice();
+   const period = siteswaps.map(({length}) => length).reduce(lcm);
+   const throws = [];
+   for( let i = 0; i < period; i++ ){
+      const action = Array.prototype.concat( ...siteswaps.map(siteswap => siteswap[i % siteswap.length]) ).map(function(release, handFrom){
+         return release.map(function({value, pass, cross}){
+            if( pass ){
+               choice.pick(typeof pass);
+               if( pass === true )
+                  pass = 2 - Math.floor(handFrom / 2);
+            }
+            const handTo = (pass ? ((pass - 1) * 2 + handFrom % 2) : handFrom) + (cross ? (handFrom % 2 ? -1 : 1) : 0);
+            return { value: value / 2, handFrom, handTo };
+         })
+      });
+      throws.push( action );
+   }
+   return throws;
+
+}
+
+function lcm( a, b ){
+
+   const greater = Math.max(a, b);
+   const smaller = Math.min(a, b);
+   let result = greater;
+   while( result % smaller !== 0 )
+      result += greater;
+   return result;
+
+}
+
+class Choice {
+
+   pick( value ){
+
+      if( !this.hasOwnProperty("value") )
+         this.value = value;
+      else if( this.value !== value )
+         throw new Error("Consistency, please.");
+
+   }
 
 }
 

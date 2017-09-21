@@ -6,13 +6,17 @@ import { tests as standard_async }   from "./notations/standard_async";
 import { tests as standard_sync }    from "./notations/standard_sync";
 import { tests as compressed_async } from "./notations/compressed_async";
 import { tests as compressed_sync }  from "./notations/compressed_sync";
+import { tests as passing_async }    from "./notations/passing_async";
+import { tests as passing_sync }     from "./notations/passing_sync";
 
 
 const tests = {
    "standard:async": standard_async,
    "standard:sync": standard_sync,
    "compressed:async": compressed_async,
-   "compressed:sync": compressed_sync
+   "compressed:sync": compressed_sync,
+   "passing:async": passing_async,
+   "passing:sync": passing_sync
 };
 
 
@@ -60,7 +64,7 @@ function assertSiteswap( string, siteswap, properties ){
    // and `assert.deepStrictEqual()` compares `.toString()`s, which are 
    // implemented by the notation we're testing itself.
 
-   // One solution would be to call `assertSiteswap()` for each siteswap in
+   // One solution would be to call `assertSiteswap()` for each juggle in
    // orbits/composition, but that would break on circular references unless
    // some sort of a cache is used.
 
