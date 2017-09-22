@@ -8,6 +8,7 @@ import { tests as compressed_async } from "./notations/compressed_async";
 import { tests as compressed_sync }  from "./notations/compressed_sync";
 import { tests as passing_async }    from "./notations/passing_async";
 import { tests as passing_sync }     from "./notations/passing_sync";
+import { tests as multihand }        from "./notations/multihand";
 
 
 const tests = {
@@ -16,7 +17,8 @@ const tests = {
    "compressed:async": compressed_async,
    "compressed:sync": compressed_sync,
    "passing:async": passing_async,
-   "passing:sync": passing_sync
+   "passing:sync": passing_sync,
+   "multihand": multihand
 };
 
 

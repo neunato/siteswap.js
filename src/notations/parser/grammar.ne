@@ -78,6 +78,9 @@ digit_even
 letter
    ->  [a-zA-Z]                        {% id %}
 
+letter_capital
+   ->  [A-Z]                           {% id %}
+
 letter_even
    ->  [acegikmoqsuwyACEGIKMOQSUWY]    {% id %}
 
@@ -150,6 +153,16 @@ passing_sync
     |  passing_two_[sync_[release_[passing_sync_toss[crosspass], ","], ","]]     {% ([siteswaps]) => finalisePassingSync(siteswaps) %}
     |  passing_two_[sync_[release_[passing_sync_toss[crosspass], " "], " "]]     {% ([siteswaps]) => finalisePassingSync(siteswaps) %}
 
+
+multihand
+   -> trim[separated_[separated_[release_[multihand_toss_alpha, ","], ","], "\n"]]     {% ([throws]) => finaliseMultihand(throws) %}
+    | trim[separated_[separated_[release_[multihand_toss_num, null], null], "\n"]]     {% ([throws]) => finaliseMultihand(throws) %}
+
+multihand_toss_alpha
+   -> letter_capital integer                                     {% ([hand, value]) => ({ value, hand }) %}
+
+multihand_toss_num
+   -> "(" _ "-":? integer _ "," _ integer _ ")"                  {% ([, , minus, hand, , , , value]) => ({ value, offset: hand * (minus ? -1 : 1) }) %}
 
 
 
@@ -226,6 +239,30 @@ function finalisePassingSync( siteswaps ){
    }
    return throws;
 
+}
+
+
+
+
+import { alphabetic } from "../../alphabetic";
+
+
+function finaliseMultihand( rows ){
+
+   const hands = alphabetic(rows.length);
+   const period = rows.map(({length}) => length).reduce(lcm);
+   const throws = [];
+   for( let i = 0; i < period; i++ ){
+      const action = rows.map(row => row[i % row.length]).map(function(release, handFrom){
+         return release.map(function({ value, hand, offset }){
+            const handTo = hand ? hands.indexOf(hand) : (handFrom + offset);
+            return { value, handFrom, handTo };
+         });
+      });
+      throws.push( action );
+   }
+   return throws;
+   
 }
 
 function lcm( a, b ){

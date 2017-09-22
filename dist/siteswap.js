@@ -755,6 +755,21 @@ Parser.prototype.finish = function() {
     return considerations.map(function(c) {return c.data; });
 };
 
+function alphabetic( degree ){
+
+  const offset = "A".charCodeAt(0);
+  const count = "Z".charCodeAt(0) - offset + 1;
+
+  return range(degree).map( (hand, i) => range(Math.floor(i / count)).map(key => String.fromCharCode(offset + key % count)).concat(String.fromCharCode(offset + i % count)).join("") );
+  
+}
+
+function range( n ){
+
+  return [...Array(n).keys()];
+  
+}
+
 // Generated automatically by nearley
 // http://github.com/Hardmath123/nearley
 function id(x) {return x[0]; }
@@ -833,6 +848,27 @@ function finalisePassingSync( siteswaps ){
 
 }
 
+
+
+
+function finaliseMultihand( rows ){
+
+   const hands = alphabetic(rows.length);
+   const period = rows.map(({length}) => length).reduce(lcm);
+   const throws = [];
+   for( let i = 0; i < period; i++ ){
+      const action = rows.map(row => row[i % row.length]).map(function(release, handFrom){
+         return release.map(function({ value, hand, offset }){
+            const handTo = hand ? hands.indexOf(hand) : (handFrom + offset);
+            return { value, handFrom, handTo };
+         });
+      });
+      throws.push( action );
+   }
+   return throws;
+   
+}
+
 function lcm( a, b ){
 
    const greater = Math.max(a, b);
@@ -863,6 +899,7 @@ var grammar = {
     {"name": "digit", "symbols": [/[0-9]/], "postprocess": ([match]) => Number(match)},
     {"name": "digit_even", "symbols": [/[02468]/], "postprocess": ([match]) => Number(match)},
     {"name": "letter", "symbols": [/[a-zA-Z]/], "postprocess": id},
+    {"name": "letter_capital", "symbols": [/[A-Z]/], "postprocess": id},
     {"name": "letter_even", "symbols": [/[acegikmoqsuwyACEGIKMOQSUWY]/], "postprocess": id},
     {"name": "integer", "symbols": [/[0-9]/], "postprocess": ([match]) => Number(match)},
     {"name": "integer$ebnf$1", "symbols": [/[0-9]/]},
@@ -1343,7 +1380,57 @@ var grammar = {
     {"name": "passing_sync$macrocall$7$macrocall$2", "symbols": ["passing_sync$macrocall$7$macrocall$2$subexpression$1"]},
     {"name": "passing_sync$macrocall$7$macrocall$1", "symbols": ["_", "passing_sync$macrocall$7$macrocall$2", "_"], "postprocess": ([, [match]]) => match},
     {"name": "passing_sync$macrocall$7", "symbols": ["passing_sync$macrocall$7$macrocall$1"], "postprocess": ([[, [first], , [second]]]) => [first, second]},
-    {"name": "passing_sync", "symbols": ["passing_sync$macrocall$7"], "postprocess": ([siteswaps]) => finalisePassingSync(siteswaps)}
+    {"name": "passing_sync", "symbols": ["passing_sync$macrocall$7"], "postprocess": ([siteswaps]) => finalisePassingSync(siteswaps)},
+    {"name": "multihand$macrocall$2$macrocall$2$macrocall$2$macrocall$2", "symbols": ["multihand_toss_alpha"]},
+    {"name": "multihand$macrocall$2$macrocall$2$macrocall$2$macrocall$3", "symbols": [{"literal":","}]},
+    {"name": "multihand$macrocall$2$macrocall$2$macrocall$2$macrocall$1", "symbols": ["multihand$macrocall$2$macrocall$2$macrocall$2$macrocall$2"], "postprocess": id},
+    {"name": "multihand$macrocall$2$macrocall$2$macrocall$2$macrocall$1$ebnf$1$subexpression$1", "symbols": ["_", "multihand$macrocall$2$macrocall$2$macrocall$2$macrocall$3", "_", "multihand$macrocall$2$macrocall$2$macrocall$2$macrocall$2"]},
+    {"name": "multihand$macrocall$2$macrocall$2$macrocall$2$macrocall$1$ebnf$1", "symbols": ["multihand$macrocall$2$macrocall$2$macrocall$2$macrocall$1$ebnf$1$subexpression$1"]},
+    {"name": "multihand$macrocall$2$macrocall$2$macrocall$2$macrocall$1$ebnf$1$subexpression$2", "symbols": ["_", "multihand$macrocall$2$macrocall$2$macrocall$2$macrocall$3", "_", "multihand$macrocall$2$macrocall$2$macrocall$2$macrocall$2"]},
+    {"name": "multihand$macrocall$2$macrocall$2$macrocall$2$macrocall$1$ebnf$1", "symbols": ["multihand$macrocall$2$macrocall$2$macrocall$2$macrocall$1$ebnf$1", "multihand$macrocall$2$macrocall$2$macrocall$2$macrocall$1$ebnf$1$subexpression$2"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
+    {"name": "multihand$macrocall$2$macrocall$2$macrocall$2$macrocall$1", "symbols": [{"literal":"["}, "_", "multihand$macrocall$2$macrocall$2$macrocall$2$macrocall$2", "multihand$macrocall$2$macrocall$2$macrocall$2$macrocall$1$ebnf$1", "_", {"literal":"]"}], "postprocess": ([, , [first], rest]) => [first, ...rest.map(([,,,[toss]]) => toss)]},
+    {"name": "multihand$macrocall$2$macrocall$2$macrocall$2", "symbols": ["multihand$macrocall$2$macrocall$2$macrocall$2$macrocall$1"]},
+    {"name": "multihand$macrocall$2$macrocall$2$macrocall$3", "symbols": [{"literal":","}]},
+    {"name": "multihand$macrocall$2$macrocall$2$macrocall$1$ebnf$1", "symbols": []},
+    {"name": "multihand$macrocall$2$macrocall$2$macrocall$1$ebnf$1$subexpression$1", "symbols": ["_", "multihand$macrocall$2$macrocall$2$macrocall$3", "_", "multihand$macrocall$2$macrocall$2$macrocall$2"]},
+    {"name": "multihand$macrocall$2$macrocall$2$macrocall$1$ebnf$1", "symbols": ["multihand$macrocall$2$macrocall$2$macrocall$1$ebnf$1", "multihand$macrocall$2$macrocall$2$macrocall$1$ebnf$1$subexpression$1"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
+    {"name": "multihand$macrocall$2$macrocall$2$macrocall$1", "symbols": ["multihand$macrocall$2$macrocall$2$macrocall$2", "multihand$macrocall$2$macrocall$2$macrocall$1$ebnf$1"], "postprocess": ([[first], rest]) => [first, ...rest.map(([,,,[toss]]) => toss)]},
+    {"name": "multihand$macrocall$2$macrocall$2", "symbols": ["multihand$macrocall$2$macrocall$2$macrocall$1"]},
+    {"name": "multihand$macrocall$2$macrocall$3", "symbols": [{"literal":"\n"}]},
+    {"name": "multihand$macrocall$2$macrocall$1$ebnf$1", "symbols": []},
+    {"name": "multihand$macrocall$2$macrocall$1$ebnf$1$subexpression$1", "symbols": ["_", "multihand$macrocall$2$macrocall$3", "_", "multihand$macrocall$2$macrocall$2"]},
+    {"name": "multihand$macrocall$2$macrocall$1$ebnf$1", "symbols": ["multihand$macrocall$2$macrocall$1$ebnf$1", "multihand$macrocall$2$macrocall$1$ebnf$1$subexpression$1"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
+    {"name": "multihand$macrocall$2$macrocall$1", "symbols": ["multihand$macrocall$2$macrocall$2", "multihand$macrocall$2$macrocall$1$ebnf$1"], "postprocess": ([[first], rest]) => [first, ...rest.map(([,,,[toss]]) => toss)]},
+    {"name": "multihand$macrocall$2", "symbols": ["multihand$macrocall$2$macrocall$1"]},
+    {"name": "multihand$macrocall$1", "symbols": ["_", "multihand$macrocall$2", "_"], "postprocess": ([, [match]]) => match},
+    {"name": "multihand", "symbols": ["multihand$macrocall$1"], "postprocess": ([throws]) => finaliseMultihand(throws)},
+    {"name": "multihand$macrocall$4$macrocall$2$macrocall$2$macrocall$2", "symbols": ["multihand_toss_num"]},
+    {"name": "multihand$macrocall$4$macrocall$2$macrocall$2$macrocall$3", "symbols": []},
+    {"name": "multihand$macrocall$4$macrocall$2$macrocall$2$macrocall$1", "symbols": ["multihand$macrocall$4$macrocall$2$macrocall$2$macrocall$2"], "postprocess": id},
+    {"name": "multihand$macrocall$4$macrocall$2$macrocall$2$macrocall$1$ebnf$1$subexpression$1", "symbols": ["_", "multihand$macrocall$4$macrocall$2$macrocall$2$macrocall$3", "_", "multihand$macrocall$4$macrocall$2$macrocall$2$macrocall$2"]},
+    {"name": "multihand$macrocall$4$macrocall$2$macrocall$2$macrocall$1$ebnf$1", "symbols": ["multihand$macrocall$4$macrocall$2$macrocall$2$macrocall$1$ebnf$1$subexpression$1"]},
+    {"name": "multihand$macrocall$4$macrocall$2$macrocall$2$macrocall$1$ebnf$1$subexpression$2", "symbols": ["_", "multihand$macrocall$4$macrocall$2$macrocall$2$macrocall$3", "_", "multihand$macrocall$4$macrocall$2$macrocall$2$macrocall$2"]},
+    {"name": "multihand$macrocall$4$macrocall$2$macrocall$2$macrocall$1$ebnf$1", "symbols": ["multihand$macrocall$4$macrocall$2$macrocall$2$macrocall$1$ebnf$1", "multihand$macrocall$4$macrocall$2$macrocall$2$macrocall$1$ebnf$1$subexpression$2"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
+    {"name": "multihand$macrocall$4$macrocall$2$macrocall$2$macrocall$1", "symbols": [{"literal":"["}, "_", "multihand$macrocall$4$macrocall$2$macrocall$2$macrocall$2", "multihand$macrocall$4$macrocall$2$macrocall$2$macrocall$1$ebnf$1", "_", {"literal":"]"}], "postprocess": ([, , [first], rest]) => [first, ...rest.map(([,,,[toss]]) => toss)]},
+    {"name": "multihand$macrocall$4$macrocall$2$macrocall$2", "symbols": ["multihand$macrocall$4$macrocall$2$macrocall$2$macrocall$1"]},
+    {"name": "multihand$macrocall$4$macrocall$2$macrocall$3", "symbols": []},
+    {"name": "multihand$macrocall$4$macrocall$2$macrocall$1$ebnf$1", "symbols": []},
+    {"name": "multihand$macrocall$4$macrocall$2$macrocall$1$ebnf$1$subexpression$1", "symbols": ["_", "multihand$macrocall$4$macrocall$2$macrocall$3", "_", "multihand$macrocall$4$macrocall$2$macrocall$2"]},
+    {"name": "multihand$macrocall$4$macrocall$2$macrocall$1$ebnf$1", "symbols": ["multihand$macrocall$4$macrocall$2$macrocall$1$ebnf$1", "multihand$macrocall$4$macrocall$2$macrocall$1$ebnf$1$subexpression$1"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
+    {"name": "multihand$macrocall$4$macrocall$2$macrocall$1", "symbols": ["multihand$macrocall$4$macrocall$2$macrocall$2", "multihand$macrocall$4$macrocall$2$macrocall$1$ebnf$1"], "postprocess": ([[first], rest]) => [first, ...rest.map(([,,,[toss]]) => toss)]},
+    {"name": "multihand$macrocall$4$macrocall$2", "symbols": ["multihand$macrocall$4$macrocall$2$macrocall$1"]},
+    {"name": "multihand$macrocall$4$macrocall$3", "symbols": [{"literal":"\n"}]},
+    {"name": "multihand$macrocall$4$macrocall$1$ebnf$1", "symbols": []},
+    {"name": "multihand$macrocall$4$macrocall$1$ebnf$1$subexpression$1", "symbols": ["_", "multihand$macrocall$4$macrocall$3", "_", "multihand$macrocall$4$macrocall$2"]},
+    {"name": "multihand$macrocall$4$macrocall$1$ebnf$1", "symbols": ["multihand$macrocall$4$macrocall$1$ebnf$1", "multihand$macrocall$4$macrocall$1$ebnf$1$subexpression$1"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
+    {"name": "multihand$macrocall$4$macrocall$1", "symbols": ["multihand$macrocall$4$macrocall$2", "multihand$macrocall$4$macrocall$1$ebnf$1"], "postprocess": ([[first], rest]) => [first, ...rest.map(([,,,[toss]]) => toss)]},
+    {"name": "multihand$macrocall$4", "symbols": ["multihand$macrocall$4$macrocall$1"]},
+    {"name": "multihand$macrocall$3", "symbols": ["_", "multihand$macrocall$4", "_"], "postprocess": ([, [match]]) => match},
+    {"name": "multihand", "symbols": ["multihand$macrocall$3"], "postprocess": ([throws]) => finaliseMultihand(throws)},
+    {"name": "multihand_toss_alpha", "symbols": ["letter_capital", "integer"], "postprocess": ([hand, value]) => ({ value, hand })},
+    {"name": "multihand_toss_num$ebnf$1", "symbols": [{"literal":"-"}], "postprocess": id},
+    {"name": "multihand_toss_num$ebnf$1", "symbols": [], "postprocess": function(d) {return null;}},
+    {"name": "multihand_toss_num", "symbols": [{"literal":"("}, "_", "multihand_toss_num$ebnf$1", "integer", "_", {"literal":","}, "_", "integer", "_", {"literal":")"}], "postprocess": ([, , minus, hand, , , , value]) => ({ value, offset: hand * (minus ? -1 : 1) })}
 ]
   , ParserStart: "digit"
 };
@@ -1476,6 +1563,34 @@ function unparseRelease$1( release ){
 
 }
 
+const declaration$6 = {
+
+   hands: alphabetic,
+   parse: parse$1.bind(null, "multihand"),
+   unparse: unparse$2
+
+};
+
+function unparse$2( throws ){
+
+   const count = throws[0].length;
+   const hands = alphabetic(count);
+   const rows = [];
+   for( let i = 0; i < count; i++ ){
+      const row = throws.map(action => unparseRelease$2(action[i], hands)).join(",");
+      rows.push(row);
+   }
+   return rows.join("\n");
+
+}
+
+function unparseRelease$2( release, hands ){
+
+   const string = release.map(({value, handTo}) => `${hands[handTo]}${value}`).join(",");
+   return release.length === 1 ? string : `[${string}]`;
+
+}
+
 const notations = {
 
    "standard:async":   declaration,
@@ -1486,7 +1601,8 @@ const notations = {
    "compressed":       ["compressed:async", "compressed:sync"],
    "passing:async":    declaration$4,
    "passing:sync":     declaration$5,
-   "passing":          ["passing:async", "passing:sync"]
+   "passing":          ["passing:async", "passing:sync"],
+   "multihand":        declaration$6
 
 };
 
@@ -1559,21 +1675,6 @@ function toString( notation = this.notation ){
 
    return notations[notation].unparse(this.throws);
 
-}
-
-function alphabetic( degree ){
-
-  const offset = "A".charCodeAt(0);
-  const count = "Z".charCodeAt(0) - offset + 1;
-
-  return range(degree).map( (hand, i) => range(Math.floor(i / count)).map(key => String.fromCharCode(offset + key % count)).concat(String.fromCharCode(offset + i % count)).join("") );
-  
-}
-
-function range( n ){
-
-  return [...Array(n).keys()];
-  
 }
 
 function log(){

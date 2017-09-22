@@ -148,7 +148,6 @@ ___compressed:sync___ - synchronous siteswap with multiplex support where
 
 ## To do
 
-- Multi-hand notation support.
 - Siteswap and transition generator.
 - Custom hand rhythm. Like two hands in one handed patterns.
 - Combining siteswaps of different degrees.
