@@ -116,34 +116,125 @@ siteswap.toString("standard:async") // "7,5,3"
 ## Notations
 
 
-___standard___ - shorthand for `["standard:async", "standard:sync"]`  
+___standard___
 
-___standard:async___ - vanilla siteswap with multiplex support where
+- shorthand for `["standard:async", "standard:sync"]`  
 
-- throw values > 9 written as numbers: `11` is eleven ball cascade
+
+___standard:async___
+
+- throw values > 9 are written as numbers: `11` is eleven ball cascade
 - throw values are separated: `1,1` is one ball cascade
 
-___standard:sync___ - synchronous siteswap with multiplex support where
+```
+5
+11,1
+[4,3],1,4
+```
 
-- throw values are doubled: `(4,4)` is a four ball fountain
-- throw values > 9 written as numbers: `(10x,10x)` is a ten ball wimpy pattern
+___standard:sync___
+
+- throw values are doubled
+- throw values > 9 are written as numbers: `(10x,10x)` is a ten ball wimpy pattern
 - throw values are separated: `([4,4],4)`
 
+```
+(4,4)
+(4,2x)(2x,4)
+([2x,2x],0)*
+```
 
+___compressed___
 
-___compressed___ - shorthand for `["compressed:async", "compressed:sync"]`
+- shorthand for `["compressed:async", "compressed:sync"]`
 
-___compressed:async___ - vanilla siteswap with multiplex support where
+___compressed:async___
 
-- throw values > 9 written as alphabetical letters: `b` is eleven ball cascade
+- throw values > 9 are written as alphabetical letters: `b` is eleven ball cascade
 - throw values are not separated: `11` is one ball cascade
 
-___compressed:sync___ - synchronous siteswap with multiplex support where
+```
+5
+b1
+[43]14
+```
 
-- throw values are doubled: `(4,4)` is a four ball fountain
-- throw values > 9 written as numbers: `(10x,10x)` is a ten ball wimpy pattern
+___compressed:sync___
+
+- throw values are doubled
+- throw values > 9 are written as alphabetical letters: `(ax,ax)` is a ten ball wimpy pattern
 - multiplex throw values are not separated: `([44],4)`
 - hands are optionally separated: `([44],4)` `([44]4)`
+
+```
+(44)
+(4,4)
+(4,2x)(2x,4)
+([2x2x],0)*
+```
+
+___passing___
+
+- shorthand for `["passing:async", "passing:sync"]`
+
+___passing:async___
+
+- jugglers' actions are separated like `< … | … | … >` and respect the _standard:async_ rules
+- a pass is denoted with `p` when there are two jugglers: `<3p|3p>`
+- a pass is denoted with `pN` when there are two or more jugglers: `<3p2|3p3|3p1>`
+
+```
+<3|3>
+<3p|3p>
+<3p2|3p1>
+<3p2|3p3|3p1>
+<[3,3p],3,3|3p,3,3>
+```
+
+___passing:sync___
+
+- jugglers' actions are separated like `< … | … | … >` and respect the _standard:sync_ rules
+- a pass is denoted with `p` when there are two jugglers: `<(4xp,4)|(4,4xp)>`
+- a pass is denoted with `pN` when there are two or more jugglers: `<(4xp2,4)|(4,4xp1)>`
+
+```
+<(4,2x)*|(4x,4x)>
+<(4p,4)|(4p,4)>
+<(4p2,4)|(4p1,4)>
+<([6x,4p],4)(4,6x)|([4x,4p],6)(6,4x)>
+```
+
+___multihand___
+
+- throws are grouped by hands in rows
+- tosses are comma separated: `A5,A3`
+- a toss is denoted with the target hand (A,B,C...) and throw value: `A3`, or
+- a toss is denoted with the relative target hand and throw value in parentheses: `(-1,3)`.
+
+```
+A6,A4
+
+B3
+C3
+D3
+A3
+
+[A4,B3],A4,A1
+[A3,B5],B3,B1
+
+(0,6)(0,4)
+
+( 1,4)( 1,2)[(0,3)( 1,3)]
+(-1,1)(-1,5)[(0,3)(-1,3)]
+```
+
+
+-----
+
+_All notations support multiplex throws using the [ ] syntax._
+
+_All choices (like comma/space as separator) must be consistently applied._
+
 
 
 ## To do
