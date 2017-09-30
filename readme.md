@@ -17,9 +17,13 @@ Validates a siteswap and sets its properties, such as the number of props used o
 ```javascript
 new Siteswap("753")
 new Siteswap("[43]14")
-new Siteswap("(4 2x)*")
-new Siteswap("(2x,4x")    // Invalid.
-new Siteswap("(4,2x)")    // Invalid.
+new Siteswap("(4,2x)*")
+new Siteswap("7,5,3", "standard")
+new Siteswap("<3p,3,3|3p,3,3>", "passing")
+new Siteswap("<(4xp,4x)|(4xp,4x)>", "passing")
+new Siteswap(`B3,A3,A3
+              C3,B3,B3
+              A3,C3,C3`, "multihand")
 ```
 
 The following properties are assigned:
@@ -70,7 +74,7 @@ Example
 ```javascript
 const siteswap = new Siteswap("753")
 siteswap.valid                      // true
-siteswap.notation                   // "compressed"
+siteswap.notation                   // "compressed:async"
 siteswap.degree                     // 1
 siteswap.props                      // 5
 siteswap.multiplex                  // 1
@@ -85,23 +89,23 @@ siteswap.throws                     // [
                                     //  [[{ "value": 3, "handFrom": 0, "handTo": 0 }]]
                                     // ] 
 siteswap.states                     // [
-                                    //  [[1,1,1,1,1,0,0]],
-                                    //  [[1,1,1,1,0,0,1]],
-                                    //  [[1,1,1,0,1,1,0]]
+                                    //  { schedule: [[1,1,1,1,1,0,0]], strict: false, ground: true },
+                                    //  { schedule: [[1,1,1,1,0,0,1]], strict: false, ground: false },
+                                    //  { schedule: [[1,1,1,0,1,1,0]], strict: false, ground: false },
                                     // ]
 siteswap.strictStates               // [
-                                    //  [[[3],[4],[0],[1],[2],[],[]]],
-                                    //  [[[4],[0],[1],[2],[],[],[3]]],
-                                    //  [[[0],[1],[2],[],[4],[3],[]]],
-                                    //  [[[1],[2],[0],[4],[3],[],[]]],
-                                    //  [[[2],[0],[4],[3],[],[],[1]]],
-                                    //  [[[0],[4],[3],[],[2],[1],[]]],
-                                    //  [[[4],[3],[0],[2],[1],[],[]]],
-                                    //  [[[3],[0],[2],[1],[],[],[4]]],
-                                    //  [[[0],[2],[1],[],[3],[4],[]]],
-                                    //  [[[2],[1],[0],[3],[4],[],[]]],
-                                    //  [[[1],[0],[3],[4],[],[],[2]]],
-                                    //  [[[0],[3],[4],[],[1],[2],[]]]
+                                    //  { schedule: [[[1],[2],[3],[4],[5],[],[]]], strict: true, ground: true },
+                                    //  { schedule: [[[2],[3],[4],[5],[],[],[1]]], strict: true, ground: false },
+                                    //  { schedule: [[[3],[4],[5],[],[2],[1],[]]], strict: true, ground: false },
+                                    //  { schedule: [[[4],[5],[3],[2],[1],[],[]]], strict: true, ground: true },
+                                    //  { schedule: [[[5],[3],[2],[1],[],[],[4]]], strict: true, ground: false },
+                                    //  { schedule: [[[3],[2],[1],[],[5],[4],[]]], strict: true, ground: false },
+                                    //  { schedule: [[[2],[1],[3],[5],[4],[],[]]], strict: true, ground: true },
+                                    //  { schedule: [[[1],[3],[5],[4],[],[],[2]]], strict: true, ground: false },
+                                    //  { schedule: [[[3],[5],[4],[],[1],[2],[]]], strict: true, ground: false },
+                                    //  { schedule: [[[5],[4],[3],[1],[2],[],[]]], strict: true, ground: true },
+                                    //  { schedule: [[[4],[3],[1],[2],[],[],[5]]], strict: true, ground: false },
+                                    //  { schedule: [[[3],[1],[2],[],[4],[5],[]]], strict: true, ground: false }
                                     // ]
 siteswap.composition                // [this]
 siteswap.orbits                     // [new Siteswap("750"), new Siteswap("003")]
@@ -209,7 +213,7 @@ ___multihand___
 - throws are grouped by hands in rows
 - tosses are comma separated: `A5,A3`
 - a toss is denoted with the target hand (A,B,C...) and throw value: `A3`, or
-- a toss is denoted with the relative target hand and throw value in parentheses: `(-1,3)`.
+- a toss is denoted with the relative target hand and throw value in parentheses: `(-1,3)`
 
 ```
 A6,A4

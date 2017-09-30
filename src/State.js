@@ -5,12 +5,10 @@ import { equals }      from "./State.equals";
 import { isExcited }   from "./State.isExcited";
 
 // I'm not satisfied with the state of `State`, but being a temporary solution
-// until the graph content (which will use `State`, `Transition` and `Siteswap`) 
-// is introduced, it can keep on keeping on.
+// until the graph content is introduced, it can remain as is.
 
 // `strict`ness should be removed from state if it's not used at all by the graph,
 // and the `.strictStates` of a siteswap should be derived from the normal states.
-
 
 class State {
 
@@ -30,27 +28,26 @@ class State {
 
          const siteswap = source;
          for( let i = 0; i < siteswap.degree; i++ ){
-            const handState = [];
-            for( let j = 0; j < siteswap.greatestValue; j++ )
-               handState.push( strict ? [] : 0 );
-            schedule.push(handState);
+            schedule.push( Array(siteswap.greatestValue).fill(0) )
          }
 
-         let balls = 0;
-         for( let beat = -1; balls < siteswap.props; beat-- ){
-
+         let found = 0;
+         for( let beat = -1; found < siteswap.props; beat-- ){
             const action = siteswap.throws[((beat % siteswap.throws.length) + siteswap.throws.length) % siteswap.throws.length];
             for( const release of action ){
                for( const toss of release ){
                   if( beat + toss.value >= 0 ){
-                     if( strict )
-                        schedule[toss.handTo][beat + toss.value].push(balls);
-                     else
-                        schedule[toss.handTo][beat + toss.value]++;
-                     balls++;
+                     schedule[toss.handTo][beat + toss.value]++;
+                     found++;
                   }
                }
             }
+         }
+
+         if( strict ){
+            let ball = 0;
+            for( let i = 0; i < siteswap.degree; i++ )
+               schedule[i] = schedule[i].map( c => Array(c).fill().map(() => ++ball) );
          }
 
       }
