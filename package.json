@@ -1,7 +1,11 @@
 {
   "name": "siteswap.js",
+  "version": "0.1.0",
   "main": "dist/siteswap.js",
-  "module": "src/entry.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/independentgeorge/siteswap.js"
+  },
   "scripts": {
     "build": "glupost build",
     "watch": "glupost default",
