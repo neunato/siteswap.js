@@ -36,7 +36,7 @@ const t = {
                                     const compile = require('nearley/lib/compile.js');
                                     const generate = require('nearley/lib/generate.js');
                                     const parser = new Parser(grammar.ParserRules, grammar.ParserStart);
-                                    return generate( compile(parser.feed(contents.toString()).results[0], {}) );
+                                    return generate( compile(parser.feed(contents.toString()).results[0], {}) ).replace(/\$macrocall/g, "$$m").replace(/\$subexpression/g, "$$s").replace(/\$ebnf/g, "$$e");
                                   } catch(e){
                                     handleNearleyError(e);
                                   }
