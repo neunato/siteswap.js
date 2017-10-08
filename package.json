@@ -2,13 +2,10 @@
   "name": "siteswap.js",
   "version": "0.1.0",
   "main": "dist/siteswap.js",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/independentgeorge/siteswap.js"
-  },
+  "repository": "independentgeorge/siteswap.js",
   "scripts": {
-    "build": "glupost build",
-    "watch": "glupost default",
+    "build": "gulp build",
+    "watch": "gulp default",
     "test": "mocha --require babel-register"
   },
   "license": "MIT",
@@ -16,9 +13,9 @@
     "babel-core": "^6.25.0",
     "babel-preset-env": "^1.6.0",
     "babel-register": "^6.24.1",
-    "glupost": "^2.0.4",
+    "glupost": "^3.0.0",
     "mocha": "^3.4.2",
-    "nearley": "git+https://github.com/independentgeorge/nearley.git",
+    "nearley": "independentgeorge/nearley.git",
     "rollup": "^0.45.2",
     "rollup-plugin-node-resolve": "^3.0.0",
     "uglify-js": "^3.0.25",

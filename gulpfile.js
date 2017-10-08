@@ -86,7 +86,8 @@ const configuration = {
 
 };
 
-module.exports = configuration;
+require("glupost")(configuration);
+
 
 
 
