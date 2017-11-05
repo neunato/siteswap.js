@@ -7,6 +7,9 @@ function toString( notation = this.notation ){
    if( !this.valid )
       throw new Error("Invalid siteswap.");
 
+   if( notation === null )
+      return JSON.stringify(this.throws);
+
    if( !declarations[notation] )
       throw new Error("Unsupported notation.");
 

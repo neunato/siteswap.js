@@ -1608,19 +1608,27 @@ function parse( string, notations$$1 ){
    // Flatten composite notations ("standard" to "standard:async" and "standard:sync").
    notations$$1 = notations$$1.reduce( (r, n) => r.concat(Array.isArray(notations[n]) ? notations[n] : n), [] );
 
+   // .throws can be passed directly as an array to avoid parsing siteswaps that derived 
+   // from others by direct manipulation. In that case, the first notation of the list 
+   // will be assigned and it can be null.
+   if( typeof string === "object" ){
+      const notation = notations$$1[0];
+
+      if( (typeof notation !== "string" || !notations[notation]) && notation !== null )
+         throw new Error("Unsupported notation.");
+
+      if( !validOutput(string) )
+         throw new Error("Invalid input.");
+
+      return { notation, throws: string };
+   }
+
+   // Check if notations exists.
    if( notations$$1.some(notation => typeof notation !== "string" || !notations[notation]) )
       throw new Error("Unsupported notation.");
 
-   // The throws can be passed directly to avoid parsing siteswaps that derived
-   // from others by manipulating their .throws.
-   if( typeof string === "object" ){
-      if( !validOutput(string) || notations$$1.length > 1 )
-         throw new Error("Invalid input.");
-      return { notation: notations$$1[0], throws: string };
-   }
-
-   // When passed a string, try parsing with passed notations, returning the 
-   // first successful result.
+   // When passed a string, try parsing with wanted notations, returning the first 
+   // successful result.
    for( const notation of notations$$1 ){
       const [throws] = notations[notation].parse(string);
       if( throws && validOutput(throws) )
@@ -1653,6 +1661,9 @@ function toString( notation = this.notation ){
 
    if( !this.valid )
       throw new Error("Invalid siteswap.");
+
+   if( notation === null )
+      return JSON.stringify(this.throws);
 
    if( !notations[notation] )
       throw new Error("Unsupported notation.");
