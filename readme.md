@@ -61,6 +61,8 @@ __`.orbits`__ &raquo; array of siteswap's orbits which are themselves `Siteswap`
 
 __`.composition`__ &raquo; array of prime `Siteswap`s the siteswap is consisted of.
 
+__`.equals( siteswap )`__ &raquo; returns a boolean showing if the siteswap's `.throws` match those of any rotation of `siteswap`.
+
 __`.rotate( count = 1 )`__ &raquo; returns a new `Siteswap` obtained by rotating the throw sequence by `count` beats to the right.
 
 __`.toString( notation = this.notation )`__ &raquo; returns a string representing the siteswap in a given notation.

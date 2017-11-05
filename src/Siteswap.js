@@ -5,6 +5,7 @@ import { schedulise }   from "./Siteswap.schedulise";
 import { orbitise }     from "./Siteswap.orbitise";
 import { decompose }    from "./Siteswap.decompose";
 import { parse }        from "./Siteswap.parse";
+import { equals }       from "./Siteswap.equals";
 import { rotate }       from "./Siteswap.rotate";
 import { toString }     from "./Siteswap.toString";
 import { log }          from "./Siteswap.log";
@@ -59,7 +60,8 @@ Siteswap.prototype.schedulise   = schedulise;
 Siteswap.prototype.orbitise     = orbitise;
 Siteswap.prototype.decompose    = decompose;
 Siteswap.prototype.parse        = parse;
-Siteswap.prototype.rotate        = rotate;
+Siteswap.prototype.equals       = equals;
+Siteswap.prototype.rotate       = rotate;
 Siteswap.prototype.toString     = toString;
 Siteswap.prototype.log          = log;
 
