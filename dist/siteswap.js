@@ -1655,6 +1655,17 @@ function parse( string, notations$$1 ){
 
 }
 
+function rotate( count = 1 ){
+
+   const throws = this.throws;
+
+   if( count < 0 )
+      count = throws.length + count % throws.length;
+
+   return new Siteswap( [ ...throws.map((_, i) => throws[(i + count) % throws.length]) ], this.notation );
+
+}
+
 function toString( notation = this.notation ){
 
    if( !this.valid )
@@ -1840,6 +1851,7 @@ Siteswap.prototype.schedulise   = schedulise;
 Siteswap.prototype.orbitise     = orbitise;
 Siteswap.prototype.decompose    = decompose;
 Siteswap.prototype.parse        = parse;
+Siteswap.prototype.rotate        = rotate;
 Siteswap.prototype.toString     = toString;
 Siteswap.prototype.log          = log;
 
