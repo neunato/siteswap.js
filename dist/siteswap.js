@@ -5,6 +5,10 @@
 
 function validate( throws ){
 
+   // This error assumes notations can't yield invalid .throws, only user can.
+   if( !validStructure(throws) )
+      throw new Error("Invalid input.");
+
 	const balance = throws.map( action => action.map(release => 0) );
 
 	for( let beat = 0; beat < throws.length; beat++ ){
@@ -23,6 +27,23 @@ function validate( throws ){
 
 	if( balance.some(action => action.some(count => count !== 0)) )
 		throw new Error("Invalid siteswap.");
+
+}
+
+function validStructure( throws ){
+   
+   if( !Array.isArray(throws) || !throws.length )
+      return false;
+
+   for( const action of throws ){
+      if( !Array.isArray(action) || action.length !== throws[0].length )
+         return false;
+
+      if( action.some(release => !Array.isArray(release) || !release.every(({ value, handFrom, handTo }) => value !== undefined && handFrom !== undefined && handTo !== undefined)) )
+         return false;
+   }
+
+   return true;
 
 }
 
@@ -1613,13 +1634,8 @@ function parse( string, notations$$1 ){
    // will be assigned and it can be null.
    if( typeof string === "object" ){
       const notation = notations$$1[0];
-
       if( (typeof notation !== "string" || !notations[notation]) && notation !== null )
          throw new Error("Unsupported notation.");
-
-      if( !validOutput(string) )
-         throw new Error("Invalid input.");
-
       return { notation, throws: string };
    }
 
@@ -1631,29 +1647,11 @@ function parse( string, notations$$1 ){
    // successful result.
    for( const notation of notations$$1 ){
       const [throws] = notations[notation].parse(string);
-      if( throws && validOutput(throws) )
+      if( throws )
          return { notation, throws };
    }
 
    throw new Error("Invalid syntax.");
-
-}
-
-
-function validOutput( throws ){
-   
-   if( !Array.isArray(throws) || !throws.length )
-      return false;
-
-   for( const action of throws ){
-      if( !Array.isArray(action) || action.length !== throws[0].length )
-         return false;
-
-      if( action.some(release => !Array.isArray(release) || !release.every(({ value, handFrom, handTo }) => value !== undefined && handFrom !== undefined && handTo !== undefined)) )
-         return false;
-   }
-
-   return true;
 
 }
 

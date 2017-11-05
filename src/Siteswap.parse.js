@@ -12,13 +12,8 @@ function parse( string, notations ){
    // will be assigned and it can be null.
    if( typeof string === "object" ){
       const notation = notations[0];
-
       if( (typeof notation !== "string" || !declarations[notation]) && notation !== null )
          throw new Error("Unsupported notation.");
-
-      if( !validOutput(string) )
-         throw new Error("Invalid input.");
-
       return { notation, throws: string };
    }
 
@@ -30,29 +25,11 @@ function parse( string, notations ){
    // successful result.
    for( const notation of notations ){
       const [throws] = declarations[notation].parse(string);
-      if( throws && validOutput(throws) )
+      if( throws )
          return { notation, throws };
    }
 
    throw new Error("Invalid syntax.");
-
-}
-
-
-function validOutput( throws ){
-   
-   if( !Array.isArray(throws) || !throws.length )
-      return false;
-
-   for( const action of throws ){
-      if( !Array.isArray(action) || action.length !== throws[0].length )
-         return false;
-
-      if( action.some(release => !Array.isArray(release) || !release.every(({ value, handFrom, handTo }) => value !== undefined && handFrom !== undefined && handTo !== undefined)) )
-         return false;
-   }
-
-   return true;
 
 }
 
