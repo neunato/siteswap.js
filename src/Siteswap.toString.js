@@ -10,19 +10,24 @@ function toString( notation = this.notation ){
    if( notation === null )
       return JSON.stringify(this.throws);
 
-   if( !declarations[notation] )
+   if( !declarations[notation] || Array.isArray(declarations[notation]) )
       throw new Error("Unsupported notation.");
 
    // Check if they're compatible.
    if( this.notation !== notation ){
-      const limitsFrom = declarations[this.notation].limits || {};
-      const limitsTo = declarations[notation].limits || {};
-      const properties = Object.keys(limitsTo);
+      const from = declarations[this.notation].limits || {};
+      const to   = declarations[notation].limits || {};
+      const properties = Object.keys(to);
 
-      if( properties.some(property => limitsTo[property].min > limitsFrom[property].max || limitsTo[property].max < limitsFrom[property].min) )
+      // Check if notations are compatible.
+      if( properties.some(prop => to[prop] !== undefined && from[prop] !== undefined &&
+                                 (to[prop].min !== undefined && from[prop].max !== undefined && to[prop].min > from[prop].max) ||
+                                 (to[prop].max !== undefined && from[prop].min !== undefined && to[prop].max < from[prop].min)) )
          throw new Error("Incompatible notations.");
 
-      if( properties.some(property => this[property] > limitsTo[property].max || this[property] < limitsTo[property].min) )
+      // Check if calling siteswap exceeds some limit.
+      if( properties.some(prop => (to[prop].max && this[prop] > to[prop].max) ||
+                                  (to[prop].min && this[prop] < to[prop].min)) )
          throw new Error("This siteswap can't be converted to the target notation.");
    }
 
