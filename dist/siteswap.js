@@ -1560,7 +1560,7 @@ function unparseRelease( release ){
 const declaration$5 = {
 
    limits: {
-      degree: { min: 4 }
+      degree: { min: 4, step: 2 }
    },
    hands: degree => Array(degree).fill().map((_, i) => `juggler ${Math.floor(i / 2) + 1}, hand ${i % 2 + 1}`),
    parse: parse$1.bind(null, "passing_sync"),
@@ -1742,7 +1742,8 @@ function toString( notation = this.notation ){
 
       // Check if calling siteswap exceeds some limit.
       if( properties.some(prop => (to[prop].max && this[prop] > to[prop].max) ||
-                                  (to[prop].min && this[prop] < to[prop].min)) )
+                                  (to[prop].min && this[prop] < to[prop].min) ||
+                                  (this[prop] % (to[prop].step || 1) !== 0)) )
          throw new Error("This siteswap can't be converted to the target notation.");
    }
 
