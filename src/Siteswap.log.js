@@ -66,16 +66,16 @@ function log(){
    
    lines.push("states"); {
       const padding = this.period.toString().length + 1;
-      for( const [i, state] of this.states.entries() ){
-         for( const [j, handState] of state.schedule.entries() )
+      for( const [i, schedule] of this.states.entries() ){
+         for( const [j, handState] of schedule.entries() )
             lines.push( `${pad(j ? " " : (i + 1), padding)}| [${handState.join(",")}]` );
       }
    }
 
    lines.push("strict states"); {
       const padding = this.fullPeriod.toString().length + 1;
-      for( const [i, state] of this.strictStates.entries() ){
-         for( const [j, handState] of state.schedule.entries() )
+      for( const [i, schedule] of this.strictStates.entries() ){
+         for( const [j, handState] of schedule.entries() )
             lines.push( `${pad(j ? "" : (i + 1), padding)}| [${handState.map(balls => `[${balls.length ? balls.join(",") : "-"}]`).join(",")}]` );
       }
    }

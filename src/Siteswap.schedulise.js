@@ -1,17 +1,18 @@
 
-import { State } from "./State";
+import { getInitialState } from "./graph";
 
 
-function schedulise( throws, strict ){
+function schedulise( throws ){
 
-	const states = [ new State(this, strict) ];
-
-	do {
-		for( const action of throws )
-			states.push( states[states.length - 1].advance(action) );
-	} while( !states[0].equals(states[states.length - 1]) );
-
-	states.pop();
+   const states = [];
+   const first = getInitialState(this);
+   let last = first
+   do {
+      for( const action of throws ){
+         states.push( last.schedule );
+         last = last.advance(action);
+      }
+   } while( first !== last );
 
 	return states;
 

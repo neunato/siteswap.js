@@ -1,10 +1,6 @@
 
-import { Siteswap }   from "./Siteswap";
+import { Siteswap } from "./Siteswap";
 
-
-// This is far from efficient as states are repeatedly compared with `.equals()`. I could map states to numbers,
-// but that would be a temporary solution until the graph content arrives. Then, a map/array of known states will 
-// be used, and `.equals()` will deal with references, not deep comparisons.
 
 function decompose( states, throws, notation ){
 
@@ -15,31 +11,34 @@ function decompose( states, throws, notation ){
    let last = 0;
 	for( let to = 1; to <= states.length; to++ ){
 		for( let from = to - 1; from >= last; from-- ){
-			if( !states[to % states.length].equals(states[from]) )
+			if( states[to % states.length] !== states[from] ){
             continue;
-
-         let siteswap
+         }
 
          // Prime siteswap.
 			if( from === 0 && to === states.length ){
             if( !composition.length )
                return [this]
-            siteswap = new Siteswap(throws.slice(from, to), notation);
+            const siteswap = new Siteswap(throws.slice(from, to), notation);
+            add(composition, siteswap);
+            return composition;
 			}
+
          // Composite siteswaps, no transition.
-         else if( last === from ){
-            siteswap = new Siteswap(throws.slice(from, to), notation);
+         if( last === from ){
+            const siteswap = new Siteswap(throws.slice(from, to), notation);
+            add(composition, siteswap);
             last = to;
          }
          else{
             // Composite siteswaps with transition.
-            siteswap = new Siteswap(throws.splice(from, to - from), notation);
+            const siteswap = new Siteswap(throws.splice(from, to - from), notation);
             states.splice(from, to - from);
+            add(composition, siteswap);
             to = last;
          }
-
-         add(composition, siteswap);
          break;
+			
 		}
 	}
 
@@ -47,9 +46,10 @@ function decompose( states, throws, notation ){
 
 }
 
+
 function add( collection, siteswap ){
-   
-   if( !collection.some(item => siteswap.equals(item)) )
+
+   if( collection.every(item => !item.equals(siteswap)) )
       collection.push(siteswap);
 
 }

@@ -5,8 +5,6 @@ Representation of a siteswap in JavaScript.
 Validates a siteswap and sets its properties, such as the number of props used or coloured period. Determines the throw sequence, juggling states, orbits and composition of a siteswap.
 
 
-
-
 ## Usage
 
 #### Siteswap( string, notation = "compressed" )
@@ -26,7 +24,7 @@ new Siteswap(`B3,A3,A3
               A3,C3,C3`, "multihand")
 ```
 
-The following properties are assigned:
+The following properties/functions are exposed:
 
 
 __`.valid`__ &raquo; boolean showing if the siteswap is valid.
@@ -53,9 +51,9 @@ __`.prime`__ &raquo; boolean showing if the siteswap is prime (cannot be decompo
 
 __`.throws`__ &raquo; array of tosses like `{ handFrom: int, handTo: int, value: int }` three levels deep representing the throw sequence. `.throws[1][0][3]` is the fourth (multiplex) toss of the first hand during the second throw of the sequence.
 
-__`.states`__ &raquo; array of states like `{ schedule: array, strict: bool, ground: bool }` where `.schedule` represents the number of props in a given hand. `.states[1].schedule[0][3]` is the number of props in the first hand during the fourth beat of the second state.
+__`.states`__ &raquo; array of states representing the number of props in hands over time. `.states[1][0][3]` is the number of props in the first hand, four beats after the second throw is made.
 
-__`.strictStates`__ &raquo; array of states like `{ schedule: array, strict: bool, ground: bool }` where `.schedule` represents the positions of specific props within hands and beats. `.states[1].schedule[0][3][2]` is the id of the third ball in the first hand during the fourth beat of the second state.
+__`.strictStates`__ &raquo; array of states representing positions of specific props within hands over time. `.states[1][0][3][2]` is the id of the third ball in the first hand, four beats after the second throw is made.
 
 __`.orbits`__ &raquo; array of siteswap's orbits which are themselves `Siteswap`s.
 
@@ -91,25 +89,25 @@ siteswap.throws                     // [
                                     //  [[{ "value": 7, "handFrom": 0, "handTo": 0 }]],
                                     //  [[{ "value": 5, "handFrom": 0, "handTo": 0 }]],
                                     //  [[{ "value": 3, "handFrom": 0, "handTo": 0 }]]
-                                    // ] 
+                                    // ]
 siteswap.states                     // [
-                                    //  { schedule: [[1,1,1,1,1,0,0]], strict: false, ground: true },
-                                    //  { schedule: [[1,1,1,1,0,0,1]], strict: false, ground: false },
-                                    //  { schedule: [[1,1,1,0,1,1,0]], strict: false, ground: false },
+                                    //  [[1,1,1,1,1]],
+                                    //  [[1,1,1,1,0,0,1]],
+                                    //  [[1,1,1,0,1,1]]
                                     // ]
 siteswap.strictStates               // [
-                                    //  { schedule: [[[1],[2],[3],[4],[5],[],[]]], strict: true, ground: true },
-                                    //  { schedule: [[[2],[3],[4],[5],[],[],[1]]], strict: true, ground: false },
-                                    //  { schedule: [[[3],[4],[5],[],[2],[1],[]]], strict: true, ground: false },
-                                    //  { schedule: [[[4],[5],[3],[2],[1],[],[]]], strict: true, ground: true },
-                                    //  { schedule: [[[5],[3],[2],[1],[],[],[4]]], strict: true, ground: false },
-                                    //  { schedule: [[[3],[2],[1],[],[5],[4],[]]], strict: true, ground: false },
-                                    //  { schedule: [[[2],[1],[3],[5],[4],[],[]]], strict: true, ground: true },
-                                    //  { schedule: [[[1],[3],[5],[4],[],[],[2]]], strict: true, ground: false },
-                                    //  { schedule: [[[3],[5],[4],[],[1],[2],[]]], strict: true, ground: false },
-                                    //  { schedule: [[[5],[4],[3],[1],[2],[],[]]], strict: true, ground: true },
-                                    //  { schedule: [[[4],[3],[1],[2],[],[],[5]]], strict: true, ground: false },
-                                    //  { schedule: [[[3],[1],[2],[],[4],[5],[]]], strict: true, ground: false }
+                                    //  [[[1],[2],[3],[4],[5]]],
+                                    //  [[[2],[3],[4],[5],[],[],[1]]],
+                                    //  [[[3],[4],[5],[],[2],[1]]],
+                                    //  [[[4],[5],[3],[2],[1]]],
+                                    //  [[[5],[3],[2],[1],[],[],[4]]],
+                                    //  [[[3],[2],[1],[],[5],[4]]],
+                                    //  [[[2],[1],[3],[5],[4]]],
+                                    //  [[[1],[3],[5],[4],[],[],[2]]],
+                                    //  [[[3],[5],[4],[],[1],[2]]],
+                                    //  [[[5],[4],[3],[1],[2]]],
+                                    //  [[[4],[3],[1],[2],[],[],[5]]],
+                                    //  [[[3],[1],[2],[],[4],[5]]]
                                     // ]
 siteswap.composition                // [this]
 siteswap.orbits                     // [new Siteswap("750"), new Siteswap("003")]

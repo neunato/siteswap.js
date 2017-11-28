@@ -1,14 +1,16 @@
 
-import { validate }     from "./Siteswap.validate";
-import { truncate }     from "./Siteswap.truncate";
-import { schedulise }   from "./Siteswap.schedulise";
-import { orbitise }     from "./Siteswap.orbitise";
-import { decompose }    from "./Siteswap.decompose";
-import { parse }        from "./Siteswap.parse";
-import { equals }       from "./Siteswap.equals";
-import { rotate }       from "./Siteswap.rotate";
-import { toString }     from "./Siteswap.toString";
-import { log }          from "./Siteswap.log";
+import { validate }           from "./Siteswap.validate";
+import { truncate }           from "./Siteswap.truncate";
+import { schedulise }         from "./Siteswap.schedulise";
+import { scheduliseStrictly } from "./Siteswap.scheduliseStrictly";
+import { orbitise }           from "./Siteswap.orbitise";
+import { decompose }          from "./Siteswap.decompose";
+import { parse }              from "./Siteswap.parse";
+import { isGround }           from "./Siteswap.isGround";
+import { equals }             from "./Siteswap.equals";
+import { rotate }             from "./Siteswap.rotate";
+import { toString }           from "./Siteswap.toString";
+import { log }                from "./Siteswap.log";
 
 
 class Siteswap {
@@ -39,15 +41,15 @@ class Siteswap {
       this.multiplex     = this.throws.reduce((max, action) => Math.max( max, ...action.map(({length}) => length) ), 0);
       this.greatestValue = Math.max(...values);
 
-      this.states        = this.schedulise(this.throws, false);
-      this.strictStates  = this.schedulise(this.throws, true);
+      this.states        = this.schedulise(this.throws);
+      this.strictStates  = this.scheduliseStrictly(this.throws, this.states);
       this.orbits        = this.orbitise(this.throws, this.notation);
       this.composition   = this.decompose(this.states, this.throws, this.notation);
 
       this.period        = this.states.length;
       this.fullPeriod    = this.strictStates.length;
-      this.groundState   = this.states.some(({ground}) => ground);
       this.prime         = this.composition.length === 1;
+      this.groundState   = this.states.some(this.isGround);
 
    }
 
@@ -57,12 +59,15 @@ class Siteswap {
 Siteswap.prototype.validate     = validate;
 Siteswap.prototype.truncate     = truncate;
 Siteswap.prototype.schedulise   = schedulise;
+Siteswap.prototype.scheduliseStrictly   = scheduliseStrictly;
 Siteswap.prototype.orbitise     = orbitise;
 Siteswap.prototype.decompose    = decompose;
 Siteswap.prototype.parse        = parse;
+Siteswap.prototype.isGround     = isGround;
 Siteswap.prototype.equals       = equals;
 Siteswap.prototype.rotate       = rotate;
 Siteswap.prototype.toString     = toString;
 Siteswap.prototype.log          = log;
+
 
 export { Siteswap };

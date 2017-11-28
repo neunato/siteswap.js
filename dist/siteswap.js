@@ -99,203 +99,237 @@ function truncate( throws ){
 
 }
 
-function advance( action ){
+// All nodes (states) are stored in the same Map, regardless of number of props, degree, and length. All siteswaps  
+// refer to the same `.schedule` arrays, stored on nodes.
 
-   const greatestValue = this.schedule[0].length;
-   if( greatestValue === 0 )
-      return this;
+// A state is accessed by providing the schedule. If the schedule already maps to a state, return that. If not, 
+// check if the string representation of the schedule maps to a state, and return that. If neither works, store a 
+// new `State` under the provided schedule and its string, and return it.
+
+// A state can be accessed by providing a siteswap, whose initial state will be returned (and generated if it does 
+// not exist).
+
+// Nodes are currently only used to reuse their .schedules, but they are ready for links (transitions) and graph 
+// traversals.
+
+// Not sure how efficient all these lookups will be on large graphs.
+
+
+const states = {
+   schedules: new Map(),    // Schedule array to node map.
+   strings: new Map()       // Schedule string to node map.
+};
+
+class State {
+   
+   constructor( schedule ){
+
+      if( !Array.isArray(schedule) || !schedule.every(Array.isArray) )
+         throw new Error("Invalid input.")
+
+      // Schedule already used.
+      let state = states.schedules.get(schedule);
+      if( state )
+         return state
+      
+      // Schedule not used, see if it's equivalent already found.
+      const string = schedule.map(row => row.join(',')).join('-');
+      state = states.strings.get(string);
+      if( state )
+         return state
+
+      // New state.
+      states.schedules.set(schedule, this);
+      states.strings.set(string, this);
+
+      this.schedule = schedule;
+
+   }
+
+   advance( action ){
+
+      const next = this.schedule.map(array => array.slice(1));
+
+      for( let i = 0; i < action.length; i++ ){
+
+         const release = action[i];
+
+         // Check if toss distribution matches the beat's state.
+         if( release.filter(({ value }) => value).length !== (this.schedule[i][0] || 0) )
+            throw new Error("dead")
+
+         if( !release.length )
+            continue
+
+         for( const { value, handTo, handFrom } of release ){
+            if( value <= 0 )
+               continue
+
+            next[handTo][value - 1] = (next[handTo][value - 1] || 0) + 1;
+
+            for( let h = 0; h < next.length; h++ ){
+               for( let k = this.schedule[0].length - 1; k < value; k++ )
+                  if( !next[h][k] )
+                     next[h][k] = 0;
+            }
+
+         }
+      }
+
+      return new State(next)
+
+   }
+
+}
+
+
+function getInitialState( siteswap ){
 
    const schedule = [];
-   if( this.strict ){
-      schedule.push( ...this.schedule.map(handState => [...handState.slice(1).map(balls => balls.slice()), []]) );
-   }
-   else{
-      schedule.push( ...this.schedule.map(handState => [...handState.slice(1), 0]) );
-   }
+   for( let i = 0; i < siteswap.degree; i++ )
+      schedule.push( Array(siteswap.greatestValue).fill(0) );
 
-   for( const release of action ){
-      for( let i = 0; i < release.length; i++ ){
-         const toss = release[i];
-         if( toss.value > 0 ){
-            if( this.strict ){
-               const ball = this.schedule[toss.handFrom][0][i];
-               schedule[toss.handTo][toss.value - 1].push(ball);
-            }
-            else{
-               schedule[toss.handTo][toss.value - 1]++;
+   if( siteswap.greatestValue === 0 )
+      return new State( schedule )
+
+   const throws = siteswap.throws;
+
+   // The initial state is found by moving backwards in time and filling in
+   // the balls until all are found.
+   let props = 0;
+
+   for( let i = -1; true; i-- ){
+      const action = throws[((i % throws.length) + throws.length) % throws.length];
+      for( const release of action ){
+         for( const toss of release ){
+            const at = i + toss.value;
+            if( at < 0 )
+               continue
+
+            schedule[toss.handTo][at]++;
+            props++;
+
+            if( props === siteswap.props ){
+               let length = siteswap.greatestValue;
+               while( schedule.every(row => row[length - 1] === 0) )
+                  length--;
+
+               for( let j = 0; j < siteswap.degree; j++ )
+                  schedule[j].length = length;
+
+               return new State( schedule )
             }
          }
       }
    }
 
-   return new State(schedule, this.strict);
+}
+
+function schedulise( throws ){
+
+   const states = [];
+   const first = getInitialState(this);
+   let last = first;
+   do {
+      for( const action of throws ){
+         states.push( last.schedule );
+         last = last.advance(action);
+      }
+   } while( first !== last );
+
+	return states;
 
 }
 
-function equals( state ){
+// Strict states are derived from "normal" states (defined in `src/graph.js`), and implement their own 
+// `.advance()` and `.equals()` functions.
 
-   if( this.strict !== state.strict )
-      return false;
+function scheduliseStrictly( throws, states ){
 
-   const s1 = this.schedule;
-   const s2 = state.schedule;
+   const schedules = [];
+   const first = strictify(states[0]);
+   let last = first;
+   do {
+      for( const action of throws ){
+         schedules.push( last );
+         last = advance(last, action);
+      }
+   } while( !equal(first, last) );
+
+   return schedules;
+
+}
+
+function strictify( schedule ){
+
+   let ball = 0;
+   return schedule.map( s => s.map(c => Array(c).fill().map(() => ++ball)) )
+
+}
+
+function advance( schedule, action ){
+  
+   const next = schedule.map(state => state.slice(1).map(balls => [...balls]));
+
+   for( let i = 0; i < action.length; i++ ){
+      const release = action[i];
+
+      // The only way to advance from an "empty" 0-state is by throwing 0s. We don't validate structure (state to
+      // toss distribution match) here because it's done in `src/graph.js` for `.states`.
+      if( !release.length && release.every(({value, handTo, handFrom}) => value === 0 && handTo === i && handFrom === i) )
+         continue;
+
+      for( let j = 0; j < release.length; j++ ){
+         const toss = release[j];
+
+         if( toss.value <= 0 )
+            continue;
+
+         const ball = schedule[toss.handFrom][0][j];
+
+         for( let h = 0; h < next.length; h++ ){
+            for( let k = schedule[0].length - 1; k < toss.value; k++ )
+               if( !next[h][k] )
+                  next[h][k] = [];
+         }
+
+         next[toss.handTo][toss.value - 1].push(ball);
+
+      }
+
+   }
+
+   return next;
+
+}
+
+function equal( schedule1, schedule2 ){
    
-   if( s1.length !== s2.length )
+   if( schedule1.length !== schedule2.length )
       return false;
 
-   for( let hand = 0; hand < s1.length; hand++ ){
-      if( s1[hand].length !== s2[hand].length )
+   for( let i = 0; i < schedule1.length; i++ ){
+      const subschedule1 = schedule1[i];
+      const subschedule2 = schedule2[i];
+
+      if( subschedule1.length !== subschedule2.length )
          return false;
 
-      for( let beat = 0; beat < s1[hand].length; beat++ ){
+      for( let j = 0; j < subschedule1.length; j++ ){
+         const balls1 = subschedule1[j];
+         const balls2 = subschedule2[j];
 
-         if( this.strict ){
-            if( s1[hand][beat].length !== s2[hand][beat].length )
-               return false;
+         if( balls1.length !== balls2.length )
+            return false;
 
-            for( let ball = 0; ball < s1[hand][beat].length; ball++ )
-               if( s1[hand][beat][ball] !== s2[hand][beat][ball] )
-                  return false;
-         }
-         else{
-            if( s1[hand][beat] !== s2[hand][beat] )
+         for( let k = 0; k < balls1.length; k++ ){
+            if( balls1[k] !== balls2[k] )
                return false;
          }
-
       }
    }
 
    return true;
-
-}
-
-function isExcited(){
-
-   const schedule = this.schedule;
-
-   let props;
-   if( this.strict ){
-      props = this.schedule.reduce( (sum, handState) => sum + handState.reduce((sum, beatState) => sum + beatState.length, 0), 0 );
-   }
-   else{
-      props = this.schedule.reduce( (sum, handState) => sum + handState.reduce((sum, beatState) => sum + beatState, 0), 0 );
-   }
-
-   const hands = this.schedule.length;
-   const greatestValue = this.schedule[0].length;
-   const saturated = Math.floor(props / hands);
-   let excess = props % hands;
-
-   if( !this.strict ){
-      for( let i = 0; i < hands; i++ ){
-         for( let j = 0; j < saturated; j++ )
-            if( this.schedule[i][j] !== 1 )
-               return true;
-
-         const filled = this.schedule[i][saturated] === 1 ? 1 : 0;
-         for( let j = saturated + filled; j < greatestValue; j++ )
-            if( this.schedule[i][j] !== 0 )
-               return true;
-         excess -= filled;
-      }
-   }
-
-   else{
-      for( let i = 0; i < hands; i++ ){
-         for( let j = 0; j < saturated; j++ )
-            if( this.schedule[i][j].length !== 1 )
-               return true;
-
-         if( saturated === greatestValue )
-            continue;
-
-         const filled = this.schedule[i][saturated].length === 1 ? 1 : 0;
-         for( let j = saturated + filled; j < greatestValue; j++ )
-            if( this.schedule[i][j].length !== 0 )
-               return true;
-         excess -= filled;
-      }
-   }
-
-   return excess !== 0;
-
-}
-
-// I'm not satisfied with the state of `State`, but being a temporary solution
-// until the graph content is introduced, it can remain as is.
-
-// `strict`ness should be removed from state if it's not used at all by the graph,
-// and the `.strictStates` of a siteswap should be derived from the normal states.
-
-class State {
-
-   constructor( source, strict = false ){
-
-      let schedule;
-
-      // Find initial state of a given siteswap.
-      if( source instanceof Array ){
-
-         schedule = source;      
-
-      }
-      else if( source instanceof Siteswap ){
-
-         schedule = [];
-
-         const siteswap = source;
-         for( let i = 0; i < siteswap.degree; i++ ){
-            schedule.push( Array(siteswap.greatestValue).fill(0) );
-         }
-
-         let found = 0;
-         for( let beat = -1; found < siteswap.props; beat-- ){
-            const action = siteswap.throws[((beat % siteswap.throws.length) + siteswap.throws.length) % siteswap.throws.length];
-            for( const release of action ){
-               for( const toss of release ){
-                  if( beat + toss.value >= 0 ){
-                     schedule[toss.handTo][beat + toss.value]++;
-                     found++;
-                  }
-               }
-            }
-         }
-
-         if( strict ){
-            let ball = 0;
-            for( let i = 0; i < siteswap.degree; i++ )
-               schedule[i] = schedule[i].map( c => Array(c).fill().map(() => ++ball) );
-         }
-
-      }
-      else{
-         throw new Error("Invalid input.")
-      }
-
-      this.schedule = schedule;
-      this.strict = strict;
-      this.ground = !this.isExcited();
-
-   }
-
-}
-
-State.prototype.advance = advance;
-State.prototype.equals = equals;
-State.prototype.isExcited = isExcited;
-
-function schedulise( throws, strict ){
-
-	const states = [ new State(this, strict) ];
-
-	do {
-		for( const action of throws )
-			states.push( states[states.length - 1].advance(action) );
-	} while( !states[0].equals(states[states.length - 1]) );
-
-	states.pop();
-
-	return states;
 
 }
 
@@ -350,10 +384,6 @@ function orbitise( throws, notation ){
 
 }
 
-// This is far from efficient as states are repeatedly compared with `.equals()`. I could map states to numbers,
-// but that would be a temporary solution until the graph content arrives. Then, a map/array of known states will 
-// be used, and `.equals()` will deal with references, not deep comparisons.
-
 function decompose( states, throws, notation ){
 
 	const composition = [];
@@ -363,31 +393,34 @@ function decompose( states, throws, notation ){
    let last = 0;
 	for( let to = 1; to <= states.length; to++ ){
 		for( let from = to - 1; from >= last; from-- ){
-			if( !states[to % states.length].equals(states[from]) )
+			if( states[to % states.length] !== states[from] ){
             continue;
-
-         let siteswap;
+         }
 
          // Prime siteswap.
 			if( from === 0 && to === states.length ){
             if( !composition.length )
                return [this]
-            siteswap = new Siteswap(throws.slice(from, to), notation);
+            const siteswap = new Siteswap(throws.slice(from, to), notation);
+            add(composition, siteswap);
+            return composition;
 			}
+
          // Composite siteswaps, no transition.
-         else if( last === from ){
-            siteswap = new Siteswap(throws.slice(from, to), notation);
+         if( last === from ){
+            const siteswap = new Siteswap(throws.slice(from, to), notation);
+            add(composition, siteswap);
             last = to;
          }
          else{
             // Composite siteswaps with transition.
-            siteswap = new Siteswap(throws.splice(from, to - from), notation);
+            const siteswap = new Siteswap(throws.splice(from, to - from), notation);
             states.splice(from, to - from);
+            add(composition, siteswap);
             to = last;
          }
-
-         add(composition, siteswap);
          break;
+			
 		}
 	}
 
@@ -395,9 +428,10 @@ function decompose( states, throws, notation ){
 
 }
 
+
 function add( collection, siteswap ){
-   
-   if( !collection.some(item => siteswap.equals(item)) )
+
+   if( collection.every(item => !item.equals(siteswap)) )
       collection.push(siteswap);
 
 }
@@ -1662,7 +1696,13 @@ function parse( string, notations$$1 ){
 
 }
 
-function equals$1( siteswap ){
+function isGround( schedule ){
+
+   return schedule.every(handSchedule => handSchedule.every( (value, index, {length}) => value === 1 || (value === 0 && index === length - 1) ));
+
+}
+
+function equals( siteswap ){
 
    if( !this.valid )
       throw new Error("Invalid siteswap.");
@@ -1814,16 +1854,16 @@ function log(){
    
    lines.push("states"); {
       const padding = this.period.toString().length + 1;
-      for( const [i, state] of this.states.entries() ){
-         for( const [j, handState] of state.schedule.entries() )
+      for( const [i, schedule] of this.states.entries() ){
+         for( const [j, handState] of schedule.entries() )
             lines.push( `${pad(j ? " " : (i + 1), padding)}| [${handState.join(",")}]` );
       }
    }
 
    lines.push("strict states"); {
       const padding = this.fullPeriod.toString().length + 1;
-      for( const [i, state] of this.strictStates.entries() ){
-         for( const [j, handState] of state.schedule.entries() )
+      for( const [i, schedule] of this.strictStates.entries() ){
+         for( const [j, handState] of schedule.entries() )
             lines.push( `${pad(j ? "" : (i + 1), padding)}| [${handState.map(balls => `[${balls.length ? balls.join(",") : "-"}]`).join(",")}]` );
       }
    }
@@ -1887,15 +1927,15 @@ class Siteswap {
       this.multiplex     = this.throws.reduce((max, action) => Math.max( max, ...action.map(({length}) => length) ), 0);
       this.greatestValue = Math.max(...values);
 
-      this.states        = this.schedulise(this.throws, false);
-      this.strictStates  = this.schedulise(this.throws, true);
+      this.states        = this.schedulise(this.throws);
+      this.strictStates  = this.scheduliseStrictly(this.throws, this.states);
       this.orbits        = this.orbitise(this.throws, this.notation);
       this.composition   = this.decompose(this.states, this.throws, this.notation);
 
       this.period        = this.states.length;
       this.fullPeriod    = this.strictStates.length;
-      this.groundState   = this.states.some(({ground}) => ground);
       this.prime         = this.composition.length === 1;
+      this.groundState   = this.states.some(this.isGround);
 
    }
 
@@ -1905,10 +1945,12 @@ class Siteswap {
 Siteswap.prototype.validate     = validate;
 Siteswap.prototype.truncate     = truncate;
 Siteswap.prototype.schedulise   = schedulise;
+Siteswap.prototype.scheduliseStrictly   = scheduliseStrictly;
 Siteswap.prototype.orbitise     = orbitise;
 Siteswap.prototype.decompose    = decompose;
 Siteswap.prototype.parse        = parse;
-Siteswap.prototype.equals       = equals$1;
+Siteswap.prototype.isGround     = isGround;
+Siteswap.prototype.equals       = equals;
 Siteswap.prototype.rotate       = rotate;
 Siteswap.prototype.toString     = toString;
 Siteswap.prototype.log          = log;
