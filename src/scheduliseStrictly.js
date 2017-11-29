@@ -2,13 +2,13 @@
 // Strict states are derived from "normal" states (defined in `src/graph.js`), and implement their own 
 // `.advance()` and `.equals()` functions.
 
-function scheduliseStrictly( throws, states ){
+function scheduliseStrictly( siteswap ){
 
    const schedules = [];
-   const first = strictify(states[0]);
+   const first = strictify(siteswap.states[0]);
    let last = first
    do {
-      for( const action of throws ){
+      for( const action of siteswap.throws ){
          schedules.push( last );
          last = advance(last, action);
       }

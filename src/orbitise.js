@@ -20,9 +20,9 @@ function mark( orbit, map, throws, i, j ){
 
 }
 
+function orbitise( siteswap ){
 
-function orbitise( throws, notation ){
-
+   const { throws, notation } = siteswap;
 	const orbits = [];
 
 	// Maps tosses to orbits.
@@ -41,7 +41,7 @@ function orbitise( throws, notation ){
 	}
 
 	if( orbits.length === 1 )
-		return [this];
+		return [siteswap];
 
 	for( let i = 0; i < throws.length; i++ ){
 		const action = throws[i];
@@ -52,6 +52,7 @@ function orbitise( throws, notation ){
 	return orbits.map( orbit => new Siteswap(orbit, notation) );
 
 }
+
 
 export { orbitise };
 

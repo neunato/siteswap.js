@@ -1,6 +1,4 @@
 
-// Validates the siteswap for collisions. Assumes that throws sequence structure is valid.
-
 function validate( throws ){
 
    // This error assumes notations can't yield invalid .throws, only user can.
@@ -16,7 +14,6 @@ function validate( throws ){
 			for( const toss of release ){
 				// Outgoing toss counts.
 				balance[beat][toss.handFrom]++;
-
 				// Incoming toss counts.
 				balance[(beat + toss.value) % throws.length][toss.handTo]--;
 			}

@@ -2,19 +2,19 @@
 import { getInitialState } from "./graph";
 
 
-function schedulise( throws ){
+function schedulise( siteswap ){
 
    const states = [];
-   const first = getInitialState(this);
-   let last = first
+   const first = getInitialState(siteswap);
+   let last = first;
    do {
-      for( const action of throws ){
+      for( const action of siteswap.throws ){
          states.push( last.schedule );
          last = last.advance(action);
       }
    } while( first !== last );
 
-	return states;
+   return states;
 
 }
 

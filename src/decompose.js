@@ -2,11 +2,13 @@
 import { Siteswap } from "./Siteswap";
 
 
-function decompose( states, throws, notation ){
+function decompose( siteswap ){
 
-	const composition = [];
-   throws = [...throws];
-   states = [...states];
+   const composition = [];
+
+   const throws = [...siteswap.throws];
+   const states = [...siteswap.states];
+   const notation = siteswap.notation;
 
    let last = 0;
 	for( let to = 1; to <= states.length; to++ ){
@@ -18,23 +20,20 @@ function decompose( states, throws, notation ){
          // Prime siteswap.
 			if( from === 0 && to === states.length ){
             if( !composition.length )
-               return [this]
-            const siteswap = new Siteswap(throws.slice(from, to), notation);
-            add(composition, siteswap);
+               return [siteswap];
+            add(composition, new Siteswap(throws.slice(from, to), notation));
             return composition;
 			}
 
          // Composite siteswaps, no transition.
          if( last === from ){
-            const siteswap = new Siteswap(throws.slice(from, to), notation);
-            add(composition, siteswap);
+            add(composition, new Siteswap(throws.slice(from, to), notation));
             last = to;
          }
          else{
             // Composite siteswaps with transition.
-            const siteswap = new Siteswap(throws.splice(from, to - from), notation);
+            add(composition, new Siteswap(throws.splice(from, to - from), notation));
             states.splice(from, to - from);
-            add(composition, siteswap);
             to = last;
          }
          break;
@@ -45,7 +44,6 @@ function decompose( states, throws, notation ){
 	return composition;
 
 }
-
 
 function add( collection, siteswap ){
 

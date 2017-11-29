@@ -1,8 +1,6 @@
 (function(f){if(typeof exports==="object"&&typeof module!=="undefined"){module.exports=f()}else if(typeof define==="function"&&define.amd){define([],f)}else{var g;if(typeof window!=="undefined"){g=window}else if(typeof global!=="undefined"){g=global}else if(typeof self!=="undefined"){g=self}else{g=this}g.Siteswap = f()}})(function(){var define,module,exports;module={exports:(exports={})};
 'use strict';
 
-// Validates the siteswap for collisions. Assumes that throws sequence structure is valid.
-
 function validate( throws ){
 
    // This error assumes notations can't yield invalid .throws, only user can.
@@ -18,7 +16,6 @@ function validate( throws ){
 			for( const toss of release ){
 				// Outgoing toss counts.
 				balance[beat][toss.handFrom]++;
-
 				// Incoming toss counts.
 				balance[(beat + toss.value) % throws.length][toss.handTo]--;
 			}
@@ -91,11 +88,13 @@ function truncate( throws ){
             }
             if( i + j === throws.length ){
                throws.length = i;
-               return;
+               return throws;
             }
          }
       }
    }
+
+   return throws;
 
 }
 
@@ -225,32 +224,32 @@ function getInitialState( siteswap ){
 
 }
 
-function schedulise( throws ){
+function schedulise( siteswap ){
 
    const states = [];
-   const first = getInitialState(this);
+   const first = getInitialState(siteswap);
    let last = first;
    do {
-      for( const action of throws ){
+      for( const action of siteswap.throws ){
          states.push( last.schedule );
          last = last.advance(action);
       }
    } while( first !== last );
 
-	return states;
+   return states;
 
 }
 
 // Strict states are derived from "normal" states (defined in `src/graph.js`), and implement their own 
 // `.advance()` and `.equals()` functions.
 
-function scheduliseStrictly( throws, states ){
+function scheduliseStrictly( siteswap ){
 
    const schedules = [];
-   const first = strictify(states[0]);
+   const first = strictify(siteswap.states[0]);
    let last = first;
    do {
-      for( const action of throws ){
+      for( const action of siteswap.throws ){
          schedules.push( last );
          last = advance(last, action);
       }
@@ -351,9 +350,9 @@ function mark( orbit, map, throws, i, j ){
 
 }
 
+function orbitise( siteswap ){
 
-function orbitise( throws, notation ){
-
+   const { throws, notation } = siteswap;
 	const orbits = [];
 
 	// Maps tosses to orbits.
@@ -372,7 +371,7 @@ function orbitise( throws, notation ){
 	}
 
 	if( orbits.length === 1 )
-		return [this];
+		return [siteswap];
 
 	for( let i = 0; i < throws.length; i++ ){
 		const action = throws[i];
@@ -384,11 +383,13 @@ function orbitise( throws, notation ){
 
 }
 
-function decompose( states, throws, notation ){
+function decompose( siteswap ){
 
-	const composition = [];
-   throws = [...throws];
-   states = [...states];
+   const composition = [];
+
+   const throws = [...siteswap.throws];
+   const states = [...siteswap.states];
+   const notation = siteswap.notation;
 
    let last = 0;
 	for( let to = 1; to <= states.length; to++ ){
@@ -400,23 +401,20 @@ function decompose( states, throws, notation ){
          // Prime siteswap.
 			if( from === 0 && to === states.length ){
             if( !composition.length )
-               return [this]
-            const siteswap = new Siteswap(throws.slice(from, to), notation);
-            add(composition, siteswap);
+               return [siteswap];
+            add(composition, new Siteswap(throws.slice(from, to), notation));
             return composition;
 			}
 
          // Composite siteswaps, no transition.
          if( last === from ){
-            const siteswap = new Siteswap(throws.slice(from, to), notation);
-            add(composition, siteswap);
+            add(composition, new Siteswap(throws.slice(from, to), notation));
             last = to;
          }
          else{
             // Composite siteswaps with transition.
-            const siteswap = new Siteswap(throws.splice(from, to - from), notation);
+            add(composition, new Siteswap(throws.splice(from, to - from), notation));
             states.splice(from, to - from);
-            add(composition, siteswap);
             to = last;
          }
          break;
@@ -427,7 +425,6 @@ function decompose( states, throws, notation ){
 	return composition;
 
 }
-
 
 function add( collection, siteswap ){
 
@@ -1904,56 +1901,48 @@ class Siteswap {
    constructor( string, notations = "compressed" ){
 
       try{
-         const { throws, notation } = this.parse(string, [].concat(notations));
-         this.validate(throws);
-         this.truncate(throws);
+         const { throws, notation } = parse(string, [].concat(notations));
 
-         this.valid         = true;
-         this.notation      = notation;
-         this.throws        = throws;
+         validate(throws);
+
+         this.valid    = true;
+         this.notation = notation;
+         this.throws   = truncate(throws);
       }
       catch(e){
          this.valid = false;
          this.notation = notations;
          this.error = e.message;
          return this;
-      }      
-      
+      }
 
-      const values       = this.throws.reduce((result, action) => result.concat( ...action.map(release => release.map(({value}) => value)) ), []);
 
-      this.degree        = this.throws[0].length;
-      this.props         = values.reduce((sum, value) => sum + value) / this.throws.length;
-      this.multiplex     = this.throws.reduce((max, action) => Math.max( max, ...action.map(({length}) => length) ), 0);
+      const throws       = this.throws;
+      const values       = throws.reduce((result, action) => result.concat( ...action.map(release => release.map(({value}) => value)) ), []);
+
+      this.degree        = throws[0].length;
+      this.props         = values.reduce((sum, value) => sum + value) / throws.length;
+      this.multiplex     = throws.reduce((max, action) => Math.max( max, ...action.map(({length}) => length) ), 0);
       this.greatestValue = Math.max(...values);
 
-      this.states        = this.schedulise(this.throws);
-      this.strictStates  = this.scheduliseStrictly(this.throws, this.states);
-      this.orbits        = this.orbitise(this.throws, this.notation);
-      this.composition   = this.decompose(this.states, this.throws, this.notation);
+      this.states        = schedulise(this);
+      this.strictStates  = scheduliseStrictly(this);
+      this.orbits        = orbitise(this);
+      this.composition   = decompose(this);
 
       this.period        = this.states.length;
       this.fullPeriod    = this.strictStates.length;
       this.prime         = this.composition.length === 1;
-      this.groundState   = this.states.some(this.isGround);
+      this.groundState   = this.states.some(isGround);
 
    }
 
 }
 
-
-Siteswap.prototype.validate     = validate;
-Siteswap.prototype.truncate     = truncate;
-Siteswap.prototype.schedulise   = schedulise;
-Siteswap.prototype.scheduliseStrictly   = scheduliseStrictly;
-Siteswap.prototype.orbitise     = orbitise;
-Siteswap.prototype.decompose    = decompose;
-Siteswap.prototype.parse        = parse;
-Siteswap.prototype.isGround     = isGround;
-Siteswap.prototype.equals       = equals;
-Siteswap.prototype.rotate       = rotate;
-Siteswap.prototype.toString     = toString;
-Siteswap.prototype.log          = log;
+Siteswap.prototype.equals   = equals;
+Siteswap.prototype.rotate   = rotate;
+Siteswap.prototype.toString = toString;
+Siteswap.prototype.log      = log;
 
 module.exports = Siteswap;
 
