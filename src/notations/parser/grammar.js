@@ -79,18 +79,17 @@ function finalisePassingSync( siteswaps ){
 
 
 
-import { alphabetic } from "../../alphabetic";
+import { numeric } from "../../alphabetic";
 
 
 function finaliseMultihand( rows ){
 
-   const hands = alphabetic(rows.length);
    const period = rows.map(({length}) => length).reduce(lcm);
    const throws = [];
    for( let i = 0; i < period; i++ ){
       const action = rows.map(row => row[i % row.length]).map(function(release, handFrom){
          return release.map(function({ value, hand, offset }){
-            const handTo = hand ? hands.indexOf(hand) : (handFrom + offset);
+            const handTo = offset !== undefined ? handFrom + offset : numeric(hand);
             return { value, handFrom, handTo };
          });
       });

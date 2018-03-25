@@ -1,18 +1,35 @@
 
-export { alphabetic };
+const offset = "A".charCodeAt(0)
+const count = "Z".charCodeAt(0) - offset + 1
 
 
-function alphabetic( degree ){
+// Convert integer to an A-Z string (0 => A, 25 => Z, 26 => AA).
 
-  const offset = "A".charCodeAt(0);
-  const count = "Z".charCodeAt(0) - offset + 1;
+function alphabetic( int ){
 
-  return range(degree).map( (hand, i) => range(Math.floor(i / count)).map(key => String.fromCharCode(offset + key % count)).concat(String.fromCharCode(offset + i % count)).join("") );
-  
+  return "A".repeat(Math.floor(int / count)) + String.fromCharCode(offset + int % count)
+
 }
 
-function range( n ){
 
-  return [...Array(n).keys()];
-  
+// Convert A-Z string to an integer (A => 0, Z => 25, AA => 26).
+
+function numeric( string ){
+
+   let i = 0
+   while( string[i] === "A" )
+      i++
+
+   if( i < string.length - 1 )
+      throw new Error("Invalid input.")
+
+   if( i === string.length )
+      return (i - 1) * count
+
+   return i * count + string[i].charCodeAt(0) - offset
+
 }
+
+
+export { alphabetic }
+export { numeric }

@@ -22,10 +22,11 @@ function log(){
    lines.push(`multiplex\n ${this.multiplex}`);
    lines.push(`prime\n ${this.prime}`);
    lines.push(`ground state\n ${this.groundState}`);
-   
+
+
 
    if( this.degree > 2 ){
-      hands = alphabetic(this.degree);
+      hands = Array(this.degree).fill().map((_, i) => alphabetic(i));
 
       lines.push("hand labels");
       const oldLabels = notations[this.notation].hands(this.degree);

@@ -34,7 +34,7 @@ function validStructure( throws ){
       if( !Array.isArray(action) || action.length !== throws[0].length )
          return false;
 
-      if( action.some(release => !Array.isArray(release) || !release.every(({ value, handFrom, handTo }) => value !== undefined && handFrom !== undefined && handTo !== undefined)) )
+      if( action.some(release => !Array.isArray(release) || !release.every(({ value, handFrom, handTo }) => value !== undefined && handFrom !== undefined && handTo !== undefined && handFrom < action.length && handTo < action.length)) )
          return false;
    }
 

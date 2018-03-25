@@ -36,7 +36,7 @@ function validStructure( throws ){
       if( !Array.isArray(action) || action.length !== throws[0].length )
          return false;
 
-      if( action.some(release => !Array.isArray(release) || !release.every(({ value, handFrom, handTo }) => value !== undefined && handFrom !== undefined && handTo !== undefined)) )
+      if( action.some(release => !Array.isArray(release) || !release.every(({ value, handFrom, handTo }) => value !== undefined && handFrom !== undefined && handTo !== undefined && handFrom < action.length && handTo < action.length)) )
          return false;
    }
 
@@ -811,19 +811,35 @@ Parser.prototype.finish = function() {
     return considerations.map(function(c) {return c.data; });
 };
 
-function alphabetic( degree ){
+const offset = "A".charCodeAt(0);
+const count = "Z".charCodeAt(0) - offset + 1;
 
-  const offset = "A".charCodeAt(0);
-  const count = "Z".charCodeAt(0) - offset + 1;
 
-  return range(degree).map( (hand, i) => range(Math.floor(i / count)).map(key => String.fromCharCode(offset + key % count)).concat(String.fromCharCode(offset + i % count)).join("") );
-  
+// Convert integer to an A-Z string (0 => A, 25 => Z, 26 => AA).
+
+function alphabetic( int ){
+
+  return "A".repeat(Math.floor(int / count)) + String.fromCharCode(offset + int % count)
+
 }
 
-function range( n ){
 
-  return [...Array(n).keys()];
-  
+// Convert A-Z string to an integer (A => 0, Z => 25, AA => 26).
+
+function numeric( string ){
+
+   let i = 0;
+   while( string[i] === "A" )
+      i++;
+
+   if( i < string.length - 1 )
+      throw new Error("Invalid input.")
+
+   if( i === string.length )
+      return (i - 1) * count
+
+   return i * count + string[i].charCodeAt(0) - offset
+
 }
 
 // Generated automatically by nearley
@@ -909,13 +925,12 @@ function finalisePassingSync( siteswaps ){
 
 function finaliseMultihand( rows ){
 
-   const hands = alphabetic(rows.length);
    const period = rows.map(({length}) => length).reduce(lcm);
    const throws = [];
    for( let i = 0; i < period; i++ ){
       const action = rows.map(row => row[i % row.length]).map(function(release, handFrom){
          return release.map(function({ value, hand, offset }){
-            const handTo = hand ? hands.indexOf(hand) : (handFrom + offset);
+            const handTo = offset !== undefined ? handFrom + offset : numeric(hand);
             return { value, handFrom, handTo };
          });
       });
@@ -1621,7 +1636,7 @@ function unparseRelease$1( release ){
 
 const declaration$6 = {
 
-   hands: alphabetic,
+   hands: (n) => Array(n).fill().map((_, i) => alphabetic(i)),
    parse: parse$1.bind(null, "multihand"),
    unparse: unparse$2
 
@@ -1630,19 +1645,18 @@ const declaration$6 = {
 function unparse$2( throws ){
 
    const count = throws[0].length;
-   const hands = alphabetic(count);
    const rows = [];
    for( let i = 0; i < count; i++ ){
-      const row = throws.map(action => unparseRelease$2(action[i], hands)).join(",");
+      const row = throws.map(action => unparseRelease$2(action[i])).join(",");
       rows.push(row);
    }
    return rows.join("\n");
 
 }
 
-function unparseRelease$2( release, hands ){
+function unparseRelease$2( release ){
 
-   const string = release.map(({value, handTo}) => `${hands[handTo]}${value}`).join(",");
+   const string = release.map(({ value, handTo }) => `${alphabetic(handTo)}${value}`).join(",");
    return release.length === 1 ? string : `[${string}]`;
 
 }
@@ -1807,10 +1821,11 @@ function log(){
    lines.push(`multiplex\n ${this.multiplex}`);
    lines.push(`prime\n ${this.prime}`);
    lines.push(`ground state\n ${this.groundState}`);
-   
+
+
 
    if( this.degree > 2 ){
-      hands = alphabetic(this.degree);
+      hands = Array(this.degree).fill().map((_, i) => alphabetic(i));
 
       lines.push("hand labels");
       const oldLabels = notations[this.notation].hands(this.degree);
