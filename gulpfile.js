@@ -4,7 +4,6 @@ const rollup  = require("rollup");
 const resolve = require("rollup-plugin-node-resolve");
 const uglify  = require("uglify-js");
 const umd     = require("umd");
-const nearley = require("nearley");
 
 const package = require("./package.json");
 
@@ -28,19 +27,8 @@ const t = {
                                   }
                                 },
 
-   umd:     (contents, file) => umd("Siteswap", contents, { commonJS: true }),
+   umd:     (contents, file) => umd("Siteswap", contents, { commonJS: true })
 
-   nearley: (contents, file) => { try{
-                                    const Parser = require('nearley/lib/nearley.js').Parser;
-                                    const grammar = require('nearley/lib/nearley-language-bootstrapped.js');
-                                    const compile = require('nearley/lib/compile.js');
-                                    const generate = require('nearley/lib/generate.js');
-                                    const parser = new Parser(grammar.ParserRules, grammar.ParserStart);
-                                    return generate( compile(parser.feed(contents.toString()).results[0], {}) ).replace(/\$macrocall/g, "$$m").replace(/\$subexpression/g, "$$s").replace(/\$ebnf/g, "$$e");
-                                  } catch(e){
-                                    handleNearleyError(e);
-                                  }
-                                }
 };
 
 
@@ -48,34 +36,21 @@ const configuration = {
 
   tasks: {
 
-    "nearley": {
-      src: "src/notations/parser/grammar.ne",
-      dest: "src/notations/parser/",
-      rename: { extname: ".js" },
-      transforms: [t.nearley]
-    },
-
-    "bundle": {
+    "build": {
       watch: "src/*.js",
-      parallel: ["bundle:js", "bundle:js:min"]
+      parallel: ["build:js", "build:js:min"]
     },
 
-    "bundle:js": {
+    "build:js": {
       src: "src/entry.js",
       rename: "dist/siteswap.js",
       transforms: [t.rollup, t.umd]
     },
 
-    "bundle:js:min": {
+    "build:js:min": {
       src: "src/entry.js",
       rename: "dist/siteswap.min.js",
       transforms: [t.rollup, t.babel, t.uglify, t.umd]
-    },
-
-
-    "build": {
-      watch: "src/notations/parser/grammar.ne",
-      series: ["nearley", "bundle"]
     },
 
     "default": {
@@ -120,11 +95,5 @@ function handleUglifyError({ name, message, filename, line, col }){
    let output = "\nUglify errored out\n\n";
    output += ` ${name}: ${message}\n     at ${filename}:${line}:${col}\n\n`;
    throw output;
-
-}
-
-function handleNearleyError(e){
-
-   throw `\nNearley errored out\n\n ${e.message}\n\n`;
 
 }

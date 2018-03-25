@@ -14,8 +14,8 @@ const declaration = {
       degree: { min: 2, max: 2 }
    },
    hands: () => ["Left", "Right"],
-   parse: parse.bind(null, "standard_sync"),
-   unparse: throws => throws.map( action => "(" + action.map( release => release.length === 1 ? unparseToss(release[0]) : `[${release.map(unparseToss).join(",")}]` ) + ")"  ).join("")
+   parse: (string) => parse("standard_sync", string),
+   unparse: (throws) => throws.map( action => "(" + action.map( release => release.length === 1 ? unparseToss(release[0]) : `[${release.map(unparseToss).join(",")}]` ) + ")"  ).join("")
 
 };
 

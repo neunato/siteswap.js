@@ -15,7 +15,7 @@ const tests = {
    "(4,4)*":           { valid: true, period: 1 },
    "(4,4)(4,4)(4,4)":  { valid: true, period: 1 },
    "(4x,4x)(4,4)":     { valid: true },
-   "(4x 4x)(4 4)":     { valid: false },
+   "(4x 4x)(4 4)":     { valid: true },
    "(4x,4x)(4 4)":     { valid: false },
    "(4x,4x),(4,4)":    { valid: false },
    "([44],0)":         { valid: true },

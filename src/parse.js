@@ -24,7 +24,7 @@ function parse( string, notations ){
    // When passed a string, try parsing with wanted notations, returning the first 
    // successful result.
    for( const notation of notations ){
-      const [throws] = declarations[notation].parse(string);
+      const throws = declarations[notation].parse(string);
       if( throws )
          return { notation, throws };
    }

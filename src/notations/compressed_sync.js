@@ -15,8 +15,8 @@ const declaration = {
       greatestValue: { max: 61 }
    },
    hands: () => ["Left", "Right"],
-   parse: parse.bind(null, "compressed_sync"),
-   unparse: throws => throws.map( action => "(" + action.map( release => release.length === 1 ? unparseToss(release[0]) : `[${release.map(unparseToss).join("")}]` ) + ")"  ).join("")
+   parse: (string) => parse("compressed_sync", string),
+   unparse: (throws) => throws.map( action => "(" + action.map( release => release.length === 1 ? unparseToss(release[0]) : `[${release.map(unparseToss).join("")}]` ) + ")"  ).join("")
 
 };
 

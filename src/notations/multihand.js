@@ -7,7 +7,7 @@ import { alphabetic } from "../alphabetic";
 const declaration = {
 
    hands: (n) => Array(n).fill().map((_, i) => alphabetic(i)),
-   parse: parse.bind(null, "multihand"),
+   parse: (string) => parse("multihand", string),
    unparse
 
 };

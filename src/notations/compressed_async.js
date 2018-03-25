@@ -9,8 +9,8 @@ const declaration = {
       greatestValue: { max: 61 }
    },
    hands: () => ["Hand"],
-   parse: parse.bind(null, "compressed_async"),
-   unparse: throws => throws.map( ([release]) => release.length === 1 ? release[0].value : `[${release.map(({ value }) => value).join("")}]`).join("")
+   parse: (string) => parse("compressed_async", string),
+   unparse: (throws) => throws.map( ([release]) => release.length === 1 ? release[0].value : `[${release.map(({ value }) => value).join("")}]`).join("")
 
 };
 

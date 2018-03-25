@@ -8,7 +8,7 @@ const declaration = {
       degree: { min: 2 }
    },
    hands: degree => Array(degree).fill().map((_, i) => `juggler ${i + 1}`),
-   parse: parse.bind(null, "passing_async"),
+   parse: (string) => parse("passing_async", string),
    unparse
 
 };

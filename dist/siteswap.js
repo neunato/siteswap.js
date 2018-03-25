@@ -433,384 +433,6 @@ function add( collection, siteswap ){
 
 }
 
-function Rule(name, symbols, postprocess) {
-    this.id = ++Rule.highestId;
-    this.name = name;
-    this.symbols = symbols;        // a list of literal | regex class | nonterminal
-    this.postprocess = postprocess;
-    return this;
-}
-Rule.highestId = 0;
-
-Rule.prototype.toString = function(withCursorAt) {
-    function stringifySymbolSequence (e) {
-        return e.literal ? JSON.stringify(e.literal) :
-               e.type ? '%' + e.type : e.toString();
-    }
-    var symbolSequence = (typeof withCursorAt === "undefined")
-                         ? this.symbols.map(stringifySymbolSequence).join(' ')
-                         : (   this.symbols.slice(0, withCursorAt).map(stringifySymbolSequence).join(' ')
-                             + " ● "
-                             + this.symbols.slice(withCursorAt).map(stringifySymbolSequence).join(' ')     );
-    return this.name + " → " + symbolSequence;
-};
-
-
-// a State is a rule at a position from a given starting point in the input stream (reference)
-function State$1(rule, dot, reference, wantedBy) {
-    this.rule = rule;
-    this.dot = dot;
-    this.reference = reference;
-    this.data = [];
-    this.wantedBy = wantedBy;
-    this.isComplete = this.dot === rule.symbols.length;
-}
-
-State$1.prototype.toString = function() {
-    return "{" + this.rule.toString(this.dot) + "}, from: " + (this.reference || 0);
-};
-
-State$1.prototype.nextState = function(child) {
-    var state = new State$1(this.rule, this.dot + 1, this.reference, this.wantedBy);
-    state.left = this;
-    state.right = child;
-    if (state.isComplete) {
-        state.data = state.build();
-    }
-    return state;
-};
-
-State$1.prototype.build = function() {
-    var children = [];
-    var node = this;
-    do {
-        children.push(node.right.data);
-        node = node.left;
-    } while (node.left);
-    children.reverse();
-    return children;
-};
-
-State$1.prototype.finish = function() {
-    if (this.rule.postprocess) {
-        this.data = this.rule.postprocess(this.data, this.reference, Parser.fail);
-    }
-};
-
-
-function Column(grammar, index) {
-    this.grammar = grammar;
-    this.index = index;
-    this.states = [];
-    this.wants = {}; // states indexed by the non-terminal they expect
-    this.scannable = []; // list of states that expect a token
-    this.completed = {}; // states that are nullable
-}
-
-
-Column.prototype.process = function(nextColumn) {
-    var states = this.states;
-    var wants = this.wants;
-    var completed = this.completed;
-
-    for (var w = 0; w < states.length; w++) { // nb. we push() during iteration
-        var state = states[w];
-
-        if (state.isComplete) {
-            state.finish();
-            if (state.data !== Parser.fail) {
-                // complete
-                var wantedBy = state.wantedBy;
-                for (var i = wantedBy.length; i--; ) { // this line is hot
-                    var left = wantedBy[i];
-                    this.complete(left, state);
-                }
-
-                // special-case nullables
-                if (state.reference === this.index) {
-                    // make sure future predictors of this rule get completed.
-                    var exp = state.rule.name;
-                    (this.completed[exp] = this.completed[exp] || []).push(state);
-                }
-            }
-
-        } else {
-            // queue scannable states
-            var exp = state.rule.symbols[state.dot];
-            if (typeof exp !== 'string') {
-                this.scannable.push(state);
-                continue;
-            }
-
-            // predict
-            if (wants[exp]) {
-                wants[exp].push(state);
-
-                if (completed.hasOwnProperty(exp)) {
-                    var nulls = completed[exp];
-                    for (var i = 0; i < nulls.length; i++) {
-                        var right = nulls[i];
-                        this.complete(state, right);
-                    }
-                }
-            } else {
-                wants[exp] = [state];
-                this.predict(exp);
-            }
-        }
-    }
-};
-
-Column.prototype.predict = function(exp) {
-    var rules = this.grammar.byName[exp] || [];
-
-    for (var i = 0; i < rules.length; i++) {
-        var r = rules[i];
-        var wantedBy = this.wants[exp];
-        var s = new State$1(r, 0, this.index, wantedBy);
-        this.states.push(s);
-    }
-};
-
-Column.prototype.complete = function(left, right) {
-    var inp = right.rule.name;
-    if (left.rule.symbols[left.dot] === inp) {
-        var copy = left.nextState(right);
-        this.states.push(copy);
-    }
-};
-
-
-function Grammar(rules, start) {
-    this.rules = rules;
-    this.start = start || this.rules[0].name;
-    var byName = this.byName = {};
-    this.rules.forEach(function(rule) {
-        if (!byName.hasOwnProperty(rule.name)) {
-            byName[rule.name] = [];
-        }
-        byName[rule.name].push(rule);
-    });
-}
-
-// So we can allow passing (rules, start) directly to Parser for backwards compatibility
-Grammar.fromCompiled = function(rules, start) {
-    var lexer = rules.Lexer;
-    if (rules.ParserStart) {
-      start = rules.ParserStart;
-      rules = rules.ParserRules;
-    }
-    var rules = rules.map(function (r) { return (new Rule(r.name, r.symbols, r.postprocess)); });
-    var g = new Grammar(rules, start);
-    g.lexer = lexer; // nb. storing lexer on Grammar is iffy, but unavoidable
-    return g;
-};
-
-
-function StreamLexer() {
-  this.reset("");
-}
-
-StreamLexer.prototype.reset = function(data, state) {
-    this.buffer = data;
-    this.index = 0;
-    this.line = state ? state.line : 1;
-    this.lastLineBreak = state ? -state.col : 0;
-};
-
-StreamLexer.prototype.next = function() {
-    if (this.index < this.buffer.length) {
-        var ch = this.buffer[this.index++];
-        if (ch === '\n') {
-          this.line += 1;
-          this.lastLineBreak = this.index;
-        }
-        return {value: ch};
-    }
-};
-
-StreamLexer.prototype.save = function() {
-  return {
-    line: this.line,
-    col: this.index - this.lastLineBreak,
-  }
-};
-
-StreamLexer.prototype.formatError = function(token, message) {
-    // nb. this gets called after consuming the offending token,
-    // so the culprit is index-1
-    var buffer = this.buffer;
-    if (typeof buffer === 'string') {
-        var nextLineBreak = buffer.indexOf('\n', this.index);
-        if (nextLineBreak === -1) nextLineBreak = buffer.length;
-        var line = buffer.substring(this.lastLineBreak, nextLineBreak);
-        var col = this.index - this.lastLineBreak;
-        message += " at line " + this.line + " col " + col + ":\n\n";
-        message += "  " + line + "\n";
-        message += "  " + Array(col).join(" ") + "^";
-        return message;
-    } else {
-        return message + " at index " + (this.index - 1);
-    }
-};
-
-
-function Parser(rules, start, options) {
-    if (rules instanceof Grammar) {
-        var grammar = rules;
-        var options = start;
-    } else {
-        var grammar = Grammar.fromCompiled(rules, start);
-    }
-    this.grammar = grammar;
-
-    // Read options
-    this.options = {
-        keepHistory: false,
-        lexer: grammar.lexer || new StreamLexer,
-    };
-    for (var key in (options || {})) {
-        this.options[key] = options[key];
-    }
-
-    // Setup lexer
-    this.lexer = this.options.lexer;
-    this.lexerState = undefined;
-
-    // Setup a table
-    var column = new Column(grammar, 0);
-    var table = this.table = [column];
-
-    // I could be expecting anything.
-    column.wants[grammar.start] = [];
-    column.predict(grammar.start);
-    // TODO what if start rule is nullable?
-    column.process();
-    this.current = 0; // token index
-}
-
-// create a reserved token for indicating a parse fail
-Parser.fail = {};
-
-Parser.prototype.feed = function(chunk) {
-    var lexer = this.lexer;
-    lexer.reset(chunk, this.lexerState);
-
-    var token;
-    while (token = lexer.next()) {
-        // We add new states to table[current+1]
-        var column = this.table[this.current];
-
-        // GC unused states
-        if (!this.options.keepHistory) {
-            delete this.table[this.current - 1];
-        }
-
-        var n = this.current + 1;
-        var nextColumn = new Column(this.grammar, n);
-        this.table.push(nextColumn);
-
-        // Advance all tokens that expect the symbol
-        var literal = token.value;
-        var value = lexer.constructor === StreamLexer ? token.value : token;
-        var scannable = column.scannable;
-        for (var w = scannable.length; w--; ) {
-            var state = scannable[w];
-            var expect = state.rule.symbols[state.dot];
-            // Try to consume the token
-            // either regex or literal
-            if (expect.test ? expect.test(value) :
-                expect.type ? expect.type === token.type
-                            : expect.literal === literal) {
-                // Add it
-                var next = state.nextState({data: value, token: token, isToken: true, reference: n - 1});
-                nextColumn.states.push(next);
-            }
-        }
-
-        // Next, for each of the rules, we either
-        // (a) complete it, and try to see if the reference row expected that
-        //     rule
-        // (b) predict the next nonterminal it expects by adding that
-        //     nonterminal's start state
-        // To prevent duplication, we also keep track of rules we have already
-        // added
-
-        nextColumn.process();
-
-        // If needed, throw an error:
-        if (nextColumn.states.length === 0) {
-            // No states at all! This is not good.
-            var message = this.lexer.formatError(token, "invalid syntax") + "\n";
-            message += "Unexpected " + (token.type ? token.type + " token: " : "");
-            message += JSON.stringify(token.value !== undefined ? token.value : token) + "\n";
-            var err = new Error(message);
-            err.offset = this.current;
-            err.token = token;
-            throw err;
-        }
-
-        // maybe save lexer state
-        if (this.options.keepHistory) {
-          column.lexerState = lexer.save();
-        }
-
-        this.current++;
-    }
-    if (column) {
-      this.lexerState = lexer.save();
-    }
-
-    // Incrementally keep track of results
-    this.results = this.finish();
-
-    // Allow chaining, for whatever it's worth
-    return this;
-};
-
-Parser.prototype.save = function() {
-    var column = this.table[this.current];
-    column.lexerState = this.lexerState;
-    return column;
-};
-
-Parser.prototype.restore = function(column) {
-    var index = column.index;
-    this.current = index;
-    this.table[index] = column;
-    this.table.splice(index + 1);
-    this.lexerState = column.lexerState;
-
-    // Incrementally keep track of results
-    this.results = this.finish();
-};
-
-// nb. deprecated: use save/restore instead!
-Parser.prototype.rewind = function(index) {
-    if (!this.options.keepHistory) {
-        throw new Error('set option `keepHistory` to enable rewinding')
-    }
-    // nb. recall column (table) indicies fall between token indicies.
-    //        col 0   --   token 0   --   col 1
-    this.restore(this.table[index]);
-};
-
-Parser.prototype.finish = function() {
-    // Return the possible parsings
-    var considerations = [];
-    var start = this.grammar.start;
-    var column = this.table[this.table.length - 1];
-    column.states.forEach(function (t) {
-        if (t.rule.name === start
-                && t.dot === t.rule.symbols.length
-                && t.reference === 0
-                && t.data !== Parser.fail) {
-            considerations.push(t);
-        }
-    });
-    return considerations.map(function(c) {return c.data; });
-};
-
 const offset = "A".charCodeAt(0);
 const count = "Z".charCodeAt(0) - offset + 1;
 
@@ -842,86 +464,328 @@ function numeric( string ){
 
 }
 
-// Generated automatically by nearley
-// http://github.com/Hardmath123/nearley
-function id(x) {return x[0]; }
+let whitespace = true;
 
 
-function mirror( throws ){
+const macros = {
 
-   return throws.concat( throws.map( action => action.map( release => release.map(({ value, cross }) => ({ value, cross })) ).reverse() ));
+   // Allow whitespace.
+   ws(){
 
+      return { allow: " " }
+
+   },
+
+   // Trim whitespace.
+   trim( rule ){
+
+      const ws = macros.ws();
+      return { symbols: [ws, rule, ws], processor: ([,result]) => result }
+
+   },
+
+   // Fixed value comma (possibly surrounded by whitespace) or whitespace.
+   separator(){
+
+      if( whitespace ){
+         const ws = macros.ws();
+         return { either: [{ symbols: [ws, ",", ws] }, " "], fixed: true }
+      }
+      else{
+         return { either: [",", " "], fixed: true }
+      }
+
+   },
+
+   // Rule repeated `min` or more times (possibly separated).
+   separated( sep, min, rule ){
+
+      return {
+         symbols: [rule, { repeat: [sep, rule], min: min - 1, max: Infinity }],
+         processor: ([first,[...rest]]) => [first, ...rest.map(second)]
+      }
+
+   },
+
+   // One `toss` without brackets or many separated inside brackets (with all the possible whitespace).
+   release( toss, sep ){
+
+      const tosses = macros.separated(sep, 2, toss);
+      return {
+         either: [
+            { symbols: [toss] },
+            { symbols: ["[", whitespace ? macros.trim(tosses) : tosses, "]"], processor: ([,result]) => result }
+         ]
+      }
+
+   },
+
+   asyncSiteswap( toss, sep ){
+
+      const ws = macros.ws();
+      return {
+         symbol: macros.separated(sep, 1, macros.release(toss, sep)),
+         processor: (releases) => releases.map(release => [release])
+      }
+
+   },
+
+   syncSiteswap( toss, sep1, sep2 ){
+
+      const ws = macros.ws();
+      const release = macros.release(toss, sep1);
+
+
+      if( whitespace ){
+         const action = { symbols: ["(", ws, release, sep2, release, ws, ")"], processor: ([, , release1, , release2]) => [release1, release2] };
+         return {
+            symbols: [macros.separated(ws, 1, action), ws, { allow: "*" }],
+            processor: ([throws, ,mirror]) => mirror ? mirrorSync(throws) : throws
+         }
+      }
+      else{
+         const action = { symbols: ["(", release, sep2, release, ")"], processor: ([, release1, , release2]) => [release1, release2] };
+         return {
+            symbols: [macros.separated(null, 1, action), { allow: "*" }],
+            processor: ([throws, mirror]) => mirror ? mirrorSync(throws) : throws
+         }
+      }
+
+   }
+
+};
+
+// Order matters.
+const terminals = [
+   { tokenType: "[", regex: "\\[" },
+   { tokenType: "]", regex: "\\]" },
+   { tokenType: "(", regex: "\\(" },
+   { tokenType: ")", regex: "\\)" },
+   { tokenType: "<", regex: "<" },
+   { tokenType: ">", regex: ">" },
+   { tokenType: "\n", regex: "\n" },
+   { tokenType: "|", regex: "\\|" },
+   { tokenType: "-", regex: "-" },
+   { tokenType: ",", regex: "," },
+   { tokenType: " ", regex: " +" },
+   { tokenType: "*", regex: "\\*" },
+   { tokenType: "x", regex: "x", processor: () => true },
+   { tokenType: "pN", regex: "p(?:[1-9][0-9]*|0)", processor: match => toNumber(match.slice(1)) },
+   { tokenType: "p", regex: "p", processor: () => true },
+   { tokenType: "digit", regex: "[0-9]", processor: toNumber },
+   { tokenType: "digit_even", regex: "[02468]", processor: toNumber },
+   { tokenType: "letter", regex: "[a-zA-Z]", processor: numerify },
+   { tokenType: "letter_even", regex: "[acegikmoqsuwyACEGIKMOQSUWY]", processor: numerify },
+   { tokenType: "letter_capital", regex: "[A-Z]" },
+   { tokenType: "integer", regex: "[1-9][0-9]*|[0-9]", processor: toNumber },
+   { tokenType: "integer_even", regex: "[1-9][0-9]*[02468]|[02468]", processor: toNumber }
+];
+
+const rules = {
+
+   "standard_async": function(){
+      whitespace = true;
+      return {
+         symbol: macros.trim(macros.asyncSiteswap("integer", macros.separator())),
+         processor: finaliseAsync
+      }
+   },
+
+   "compressed_async": function(){
+      whitespace = false;
+      return {
+         symbol: macros.trim(macros.asyncSiteswap({ either: ["digit", "letter"] }, null)),
+         processor: finaliseAsync
+      }
+   },
+
+   "standard_sync": function(){
+      whitespace = true;
+      const sep = macros.separator();
+      const toss = {
+         symbols: ["integer_even", { allow: "x" }],
+         processor: ([value, cross]) => ({ value, cross: !!cross })
+      };
+      return {
+         symbol: macros.trim(macros.syncSiteswap(toss, sep, sep)),
+         processor: finaliseSync
+      }
+   },
+
+   "compressed_sync": function(){
+      whitespace = false;
+      const sep = { allow: macros.separator(), fixed: true };
+      const toss = {
+         symbols: [{ either: ["digit_even", "letter_even"] }, { allow: "x" }],
+         processor: ([value, cross]) => ({ value, cross: !!cross })
+      };
+      return {
+         symbol: macros.trim(macros.syncSiteswap(toss, null, sep)),
+         processor: finaliseSync
+      }
+   },
+
+   "multihand": function(){
+      whitespace = true;
+
+      const ws = macros.ws();
+
+      const tossAlpha = {
+         symbols: ["letter_capital", "integer"],
+         processor: ([hand, value]) => ({ value, hand: numeric(hand) })
+      };
+      const tossNum = {
+         symbols: ["(", ws, { allow: "-" }, "integer", ws, ",", ws, "integer", ws, ")"],
+         processor: ([, , minus, hand, , , , value]) => ({ value, offset: minus ? -hand : hand })
+      };
+
+      const sep1 = macros.trim(",");
+      const sep2 = macros.trim("\n");
+
+      return {
+         symbol: macros.trim({
+            either: [
+               macros.separated(sep2, 1, macros.separated(sep1, 1, macros.release(tossAlpha, sep1))),
+               macros.separated(sep2, 1, macros.separated(ws, 1, macros.release(tossNum, ws)))
+            ]
+         }),
+         processor: finaliseMultihand
+      }
+   },
+
+   "passing_async": function(){
+      whitespace = true;
+
+      const ws = macros.ws();
+
+      const siteswap1 = macros.trim(macros.asyncSiteswap({ symbols: ["integer", { allow: "p" }], processor: ([value, pass]) => ({ value, pass }) }, macros.separator()));
+      const siteswap2 = macros.trim(macros.asyncSiteswap({ symbols: ["integer", { allow: "pN" }], processor: ([value, pass]) => ({ value, pass }) }, macros.separator()));
+
+      return {
+         symbol: macros.trim({
+            either: [
+               { symbols: ["<", siteswap1, "|", siteswap1, ">"], processor: ([, siteswap1, , siteswap2]) => [siteswap1, siteswap2] },
+               { symbols: ["<", macros.separated("|", 2, siteswap2), ">"], processor: ([, siteswaps]) => siteswaps }
+            ]
+         }),
+         processor: finalisePassingAsync
+      }
+   },
+   
+   "passing_sync": function(){
+      whitespace = true;
+
+      const ws = macros.ws();
+
+      const sep1 = macros.separator();
+      const sep2 = macros.separator();
+      const sep3 = macros.separator();
+      const sep4 = macros.separator();
+
+      const siteswap1 = macros.trim({
+         either: [
+            macros.syncSiteswap({ symbols: ["integer_even", { allow: "x" }, { allow: "p" }], processor: ([value, cross, pass]) => ({ value, pass, cross }) }, sep1, sep1),
+            macros.syncSiteswap({ symbols: ["integer_even", { allow: "p" }, { allow: "x" }], processor: ([value, pass, cross]) => ({ value, pass, cross }) }, sep2, sep2)
+         ]
+      });
+      const siteswap2 = macros.trim({
+         either: [
+            macros.syncSiteswap({ symbols: ["integer_even", { allow: "x" }, { allow: "pN" }], processor: ([value, cross, pass]) => ({ value, pass, cross }) }, sep3, sep3),
+            macros.syncSiteswap({ symbols: ["integer_even", { allow: "pN" }, { allow: "x" }], processor: ([value, pass, cross]) => ({ value, pass, cross }) }, sep4, sep4)
+         ]
+      });
+
+      return {
+         symbol: macros.trim({
+            either: [
+               { symbols: ["<", siteswap1, "|", siteswap1, ">"], processor: ([, siteswap1, , siteswap2]) => [siteswap1, siteswap2] },
+               { symbols: ["<", macros.separated("|", 2, siteswap2), ">"], processor: ([, siteswaps]) => siteswaps }
+            ]
+         }),
+         processor: finalisePassingSync
+      }
+   }
+
+};
+
+
+for( let i = 0; i < terminals.length; i++ ){
+   const terminal = terminals[i];
+   terminal.index = i;
+   rules[terminal.tokenType] = terminal;
+}
+
+
+
+
+
+
+
+
+
+
+function second([ ,a ]){
+   return a
+}
+
+function toNumber( n ){
+   return Number(n)
 }
 
 function numerify( letter ){
-
    if( letter < "a" )
-      return letter.charCodeAt(0) - "A".charCodeAt(0) + 36;
+      return letter.charCodeAt(0) - "A".charCodeAt(0) + 36
    else
-      return letter.charCodeAt(0) - "a".charCodeAt(0) + 10;
+      return letter.charCodeAt(0) - "a".charCodeAt(0) + 10
+}
+
+function lcm( a, b ){
+   const greater = Math.max(a, b);
+   const smaller = Math.min(a, b);
+   let result = greater;
+   while( result % smaller !== 0 )
+      result += greater;
+   return result;
+}
+
+
+
+
+
+function mirrorSync( throws ){
+
+   // Same tosses reused here (finalise functions create new objects anyway)
+   return throws.concat( throws.map(action => action.map(release => [...release]).reverse()) )
 
 }
 
+// Standard and compressed async.
 function finaliseAsync( throws ){
 
-   return throws.map( ([release]) => [release.map( ({value}) => ({ value, handFrom: 0, handTo: 0 }) )] );
+   for( const action of throws )
+      for( const release of action )
+         for( let i = 0; i < release.length; i++ )
+            release[i] = { value: release[i], handFrom: 0, handTo: 0 };
+   return throws
 
 }
 
+// Standard and compressed sync.
 function finaliseSync( throws ){
 
-   return throws.map( action => action.map((release, i) => release.map( ({value, cross}) => ({ value: value / 2, handFrom: i, handTo: cross ? 1 - i : i }) )) );
+   for( const action of throws ){
+      for( let i = 0; i < action.length; i++ ){
+         const release = action[i];
+         for( let j = 0; j < release.length; j++ ){
+            const { value, cross } = release[j];
+            release[j] = { value: value / 2, handFrom: i, handTo: cross ? 1 - i : i };
+         }
+      }
+   }   
+
+   return throws
 
 }
-
-function finalisePassingAsync( siteswaps ){
-
-   const choice = new Choice();
-   const period = siteswaps.map(({length}) => length).reduce(lcm);
-   const throws = [];
-   for( let i = 0; i < period; i++ ){
-      const action = siteswaps.map(actions => actions[i % actions.length][0]).map(function(release, handFrom){
-         return release.map(function({value, pass}){
-            if( pass ){
-               choice.pick(typeof pass);
-               if( pass === true )
-                  pass = 2 - handFrom;
-            }
-            const handTo = !pass ? handFrom : (pass - 1);
-            return { value, handFrom, handTo };
-         })
-      });
-      throws.push( action );
-   }
-   return throws;
-
-}
-
-function finalisePassingSync( siteswaps ){
-
-   const choice = new Choice();
-   const period = siteswaps.map(({length}) => length).reduce(lcm);
-   const throws = [];
-   for( let i = 0; i < period; i++ ){
-      const action = Array.prototype.concat( ...siteswaps.map(siteswap => siteswap[i % siteswap.length]) ).map(function(release, handFrom){
-         return release.map(function({value, pass, cross}){
-            if( pass ){
-               choice.pick(typeof pass);
-               if( pass === true )
-                  pass = 2 - Math.floor(handFrom / 2);
-            }
-            const handTo = (pass ? ((pass - 1) * 2 + handFrom % 2) : handFrom) + (cross ? (handFrom % 2 ? -1 : 1) : 0);
-            return { value: value / 2, handFrom, handTo };
-         })
-      });
-      throws.push( action );
-   }
-   return throws;
-
-}
-
-
-
 
 function finaliseMultihand( rows ){
 
@@ -930,590 +794,292 @@ function finaliseMultihand( rows ){
    for( let i = 0; i < period; i++ ){
       const action = rows.map(row => row[i % row.length]).map(function(release, handFrom){
          return release.map(function({ value, hand, offset }){
-            const handTo = offset !== undefined ? handFrom + offset : numeric(hand);
-            return { value, handFrom, handTo };
-         });
+            const handTo = offset !== undefined ? handFrom + offset : hand;
+            return { value, handFrom, handTo }
+         })
       });
       throws.push( action );
    }
-   return throws;
+   return throws
+
+}
+
+function finalisePassingAsync( siteswaps ){
+
+   const period = siteswaps.map(({length}) => length).reduce(lcm);
+   const throws = [];
+   for( let i = 0; i < period; i++ ){
+      const action = siteswaps.map(actions => actions[i % actions.length][0]).map(function(release, handFrom){
+         return release.map(function({ value, pass }){
+            if( pass === true )
+               pass = 2 - handFrom;
+            const handTo = pass === null ? handFrom : (pass - 1);
+            return { value, handFrom, handTo }
+         })
+      });
+      throws.push( action );
+   }
+   return throws
+
+}
+
+function finalisePassingSync( siteswaps ){
+
+   const period = siteswaps.map(({length}) => length).reduce(lcm);
+   const throws = [];
+   for( let i = 0; i < period; i++ ){
+      const action = Array.prototype.concat( ...siteswaps.map(siteswap => siteswap[i % siteswap.length]) ).map(function(release, handFrom){
+         return release.map(function({ value, pass, cross }){
+            if( pass === true )
+               pass = 2 - Math.floor(handFrom / 2);
+
+            const handTo = (pass === null ? handFrom : ((pass - 1) * 2 + handFrom % 2)) + (cross ? (handFrom % 2 ? -1 : 1) : 0);
+          //  const handTo = (pass ? ((pass - 1) * 2 + handFrom % 2) : handFrom) + (cross ? (handFrom % 2 ? -1 : 1) : 0);
+
+
+            return { value: value / 2, handFrom, handTo }
+         })
+      });
+      throws.push( action );
+   }
+   return throws
+
+}
+
+const error = { ERROR: true };            // Used as a Symbol, could be expanded with error details.
+
+let tokens;
+let tokenAt = 0;
+
+
+
+
+// Notation (root) rules keep references to reachable terminals and reachable `fixed` rules, whose token value or 
+// parsed branch doesn't change within a single parsing attempt.
+
+function serialise( rule, root = null ){
+
+   if( root === null ){
+
+      const root = {};
+      root.immutables = [];
+      root.terminals = new Set();
+
+      rule = serialise(rule, root);
+      rule.immutables = root.immutables;
+      rule.terminals = [...root.terminals];
+
+      return rule
+   }
+
+
+   // Optional branch.
+   if( rule === null ){
+      return rule
+   }
+
+   // Strings refer to named rules.
+   if( typeof rule === "string" ){
+      if( !rules[rule] )
+         throw new Error("Impossible.")
+      return serialise(rules[rule], root)
+   }
+
+   // An array represents a sequence of symbols.
+   if( Array.isArray(rule) ){
+      return { symbols: rule.map(symbol => serialise(symbol, root)) }
+   }
+
+   // Immutable value/branch.
+   if( rule.fixed ){
+      root.immutables.push(rule);
+   }
+
+   // Terminal token.
+   if( rule.tokenType ){
+      root.terminals.add(rule);
+      return rule
+   }
+
+   // Has to be an instruction object.
+   if( typeof rule !== "object" ){
+      throw new Error("Impossible.")
+   }
+
+
+
+   if( rule.symbol ){
+      rule.symbol = serialise(rule.symbol, root);
+   }
+   else if( rule.symbols ){
+      rule.symbols = rule.symbols.map(symbol => serialise(symbol, root));
+   }
+   else if( rule.repeat ){
+      rule.repeat = rule.repeat.map(symbol => serialise(symbol, root));
+   }
+   else if( rule.either ){
+      rule.either = rule.either.map(symbol => serialise(symbol, root));
+   }
+   else if( rule.allow ){
+      rule.either = [serialise(rule.allow, root), null];
+      delete rule.allow;
+   }
+   else {
+      throw new Error("Impossible.")
+   }
+
+   return rule
+
+}
+
+
+// Parse a string to tokens based on a rule.
+
+function tokenise( terminals, string ){
    
-}
+  // const terminals = rule.terminals
+  const regex = new RegExp(terminals.sort((a, b) => a.index - b.index).map(({ regex }) => `(${regex})`).join("|"), "y");
 
-function lcm( a, b ){
-
-   const greater = Math.max(a, b);
-   const smaller = Math.min(a, b);
-   let result = greater;
-   while( result % smaller !== 0 )
-      result += greater;
-   return result;
-
-}
-
-class Choice {
-
-   pick( value ){
-
-      if( !this.hasOwnProperty("value") )
-         this.value = value;
-      else if( this.value !== value )
-         throw new Error("Consistency, please.");
-
+  // const regex = new RegExp(tokenTypes.map(({ regex }) => `(${regex})`).join("|"), "y")
+   const tokens = [];
+   while( regex.lastIndex < string.length ){
+      const matches = regex.exec(string);
+      if( matches === null )
+         throw new Error("nece ici care")
+      const index = matches.findIndex((type, i) => i && type);
+      tokens.push({ type: terminals[index - 1].tokenType, value: matches[index] });
    }
+   return tokens
 
 }
 
-var grammar = {
-    Lexer: undefined,
-    ParserRules: [
-    {"name": "digit", "symbols": [/[0-9]/], "postprocess": ([match]) => Number(match)},
-    {"name": "digit_even", "symbols": [/[02468]/], "postprocess": ([match]) => Number(match)},
-    {"name": "letter", "symbols": [/[a-zA-Z]/], "postprocess": id},
-    {"name": "letter_capital", "symbols": [/[A-Z]/], "postprocess": id},
-    {"name": "letter_even", "symbols": [/[acegikmoqsuwyACEGIKMOQSUWY]/], "postprocess": id},
-    {"name": "integer", "symbols": [/[0-9]/], "postprocess": ([match]) => Number(match)},
-    {"name": "integer$e$1", "symbols": [/[0-9]/]},
-    {"name": "integer$e$1", "symbols": ["integer$e$1", /[0-9]/], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
-    {"name": "integer", "symbols": [/[1-9]/, "integer$e$1"], "postprocess": ([first, rest]) => Number([first, ...rest].join(""))},
-    {"name": "integer_even", "symbols": [/[02468]/], "postprocess": ([match]) => Number(match)},
-    {"name": "integer_even$e$1", "symbols": []},
-    {"name": "integer_even$e$1", "symbols": ["integer_even$e$1", /[0-9]/], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
-    {"name": "integer_even", "symbols": [/[1-9]/, "integer_even$e$1", /[02468]/], "postprocess": ([first, rest, last]) => Number([first, ...rest, last].join(""))},
-    {"name": "cross", "symbols": [{"literal":"x"}], "postprocess": () => true},
-    {"name": "crosspass", "symbols": [{"literal":"p"}], "postprocess": () => true},
-    {"name": "pass", "symbols": [{"literal":"p"}, "integer"], "postprocess": ([, target]) => target},
-    {"name": "_$e$1", "symbols": []},
-    {"name": "_$e$1", "symbols": ["_$e$1", {"literal":" "}], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
-    {"name": "_", "symbols": ["_$e$1"], "postprocess": () => null},
-    {"name": "standard_async$m$2$m$2", "symbols": ["standard_async_toss"]},
-    {"name": "standard_async$m$2$m$3", "symbols": [{"literal":","}]},
-    {"name": "standard_async$m$2$m$1", "symbols": ["standard_async$m$2$m$2"], "postprocess": id},
-    {"name": "standard_async$m$2$m$1$e$1$s$1", "symbols": ["_", "standard_async$m$2$m$3", "_", "standard_async$m$2$m$2"]},
-    {"name": "standard_async$m$2$m$1$e$1", "symbols": ["standard_async$m$2$m$1$e$1$s$1"]},
-    {"name": "standard_async$m$2$m$1$e$1$s$2", "symbols": ["_", "standard_async$m$2$m$3", "_", "standard_async$m$2$m$2"]},
-    {"name": "standard_async$m$2$m$1$e$1", "symbols": ["standard_async$m$2$m$1$e$1", "standard_async$m$2$m$1$e$1$s$2"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
-    {"name": "standard_async$m$2$m$1", "symbols": [{"literal":"["}, "_", "standard_async$m$2$m$2", "standard_async$m$2$m$1$e$1", "_", {"literal":"]"}], "postprocess": ([, , [first], rest]) => [first, ...rest.map(([,,,[toss]]) => toss)]},
-    {"name": "standard_async$m$2", "symbols": ["standard_async$m$2$m$1"]},
-    {"name": "standard_async$m$3", "symbols": [{"literal":","}]},
-    {"name": "standard_async$m$1$m$2$m$2", "symbols": ["standard_async$m$2"]},
-    {"name": "standard_async$m$1$m$2$m$3", "symbols": ["standard_async$m$3"]},
-    {"name": "standard_async$m$1$m$2$m$1$e$1", "symbols": []},
-    {"name": "standard_async$m$1$m$2$m$1$e$1$s$1", "symbols": ["_", "standard_async$m$1$m$2$m$3", "_", "standard_async$m$1$m$2$m$2"]},
-    {"name": "standard_async$m$1$m$2$m$1$e$1", "symbols": ["standard_async$m$1$m$2$m$1$e$1", "standard_async$m$1$m$2$m$1$e$1$s$1"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
-    {"name": "standard_async$m$1$m$2$m$1", "symbols": ["standard_async$m$1$m$2$m$2", "standard_async$m$1$m$2$m$1$e$1"], "postprocess": ([[first], rest]) => [first, ...rest.map(([,,,[toss]]) => toss)]},
-    {"name": "standard_async$m$1$m$2", "symbols": ["standard_async$m$1$m$2$m$1"]},
-    {"name": "standard_async$m$1$m$1", "symbols": ["_", "standard_async$m$1$m$2", "_"], "postprocess": ([, [match]]) => match},
-    {"name": "standard_async$m$1", "symbols": ["standard_async$m$1$m$1"], "postprocess": id},
-    {"name": "standard_async", "symbols": ["standard_async$m$1"], "postprocess": ([throws])  => finaliseAsync(throws)},
-    {"name": "standard_async$m$5$m$2", "symbols": ["standard_async_toss"]},
-    {"name": "standard_async$m$5$m$3", "symbols": [{"literal":" "}]},
-    {"name": "standard_async$m$5$m$1", "symbols": ["standard_async$m$5$m$2"], "postprocess": id},
-    {"name": "standard_async$m$5$m$1$e$1$s$1", "symbols": ["_", "standard_async$m$5$m$3", "_", "standard_async$m$5$m$2"]},
-    {"name": "standard_async$m$5$m$1$e$1", "symbols": ["standard_async$m$5$m$1$e$1$s$1"]},
-    {"name": "standard_async$m$5$m$1$e$1$s$2", "symbols": ["_", "standard_async$m$5$m$3", "_", "standard_async$m$5$m$2"]},
-    {"name": "standard_async$m$5$m$1$e$1", "symbols": ["standard_async$m$5$m$1$e$1", "standard_async$m$5$m$1$e$1$s$2"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
-    {"name": "standard_async$m$5$m$1", "symbols": [{"literal":"["}, "_", "standard_async$m$5$m$2", "standard_async$m$5$m$1$e$1", "_", {"literal":"]"}], "postprocess": ([, , [first], rest]) => [first, ...rest.map(([,,,[toss]]) => toss)]},
-    {"name": "standard_async$m$5", "symbols": ["standard_async$m$5$m$1"]},
-    {"name": "standard_async$m$6", "symbols": [{"literal":" "}]},
-    {"name": "standard_async$m$4$m$2$m$2", "symbols": ["standard_async$m$5"]},
-    {"name": "standard_async$m$4$m$2$m$3", "symbols": ["standard_async$m$6"]},
-    {"name": "standard_async$m$4$m$2$m$1$e$1", "symbols": []},
-    {"name": "standard_async$m$4$m$2$m$1$e$1$s$1", "symbols": ["_", "standard_async$m$4$m$2$m$3", "_", "standard_async$m$4$m$2$m$2"]},
-    {"name": "standard_async$m$4$m$2$m$1$e$1", "symbols": ["standard_async$m$4$m$2$m$1$e$1", "standard_async$m$4$m$2$m$1$e$1$s$1"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
-    {"name": "standard_async$m$4$m$2$m$1", "symbols": ["standard_async$m$4$m$2$m$2", "standard_async$m$4$m$2$m$1$e$1"], "postprocess": ([[first], rest]) => [first, ...rest.map(([,,,[toss]]) => toss)]},
-    {"name": "standard_async$m$4$m$2", "symbols": ["standard_async$m$4$m$2$m$1"]},
-    {"name": "standard_async$m$4$m$1", "symbols": ["_", "standard_async$m$4$m$2", "_"], "postprocess": ([, [match]]) => match},
-    {"name": "standard_async$m$4", "symbols": ["standard_async$m$4$m$1"], "postprocess": id},
-    {"name": "standard_async", "symbols": ["standard_async$m$4"], "postprocess": ([throws])  => finaliseAsync(throws)},
-    {"name": "standard_async_toss", "symbols": ["integer"], "postprocess": ([value]) => ({ value })},
-    {"name": "standard_sync$m$2$m$2", "symbols": ["standard_sync_toss"]},
-    {"name": "standard_sync$m$2$m$3", "symbols": [{"literal":","}]},
-    {"name": "standard_sync$m$2$m$1", "symbols": ["standard_sync$m$2$m$2"], "postprocess": id},
-    {"name": "standard_sync$m$2$m$1$e$1$s$1", "symbols": ["_", "standard_sync$m$2$m$3", "_", "standard_sync$m$2$m$2"]},
-    {"name": "standard_sync$m$2$m$1$e$1", "symbols": ["standard_sync$m$2$m$1$e$1$s$1"]},
-    {"name": "standard_sync$m$2$m$1$e$1$s$2", "symbols": ["_", "standard_sync$m$2$m$3", "_", "standard_sync$m$2$m$2"]},
-    {"name": "standard_sync$m$2$m$1$e$1", "symbols": ["standard_sync$m$2$m$1$e$1", "standard_sync$m$2$m$1$e$1$s$2"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
-    {"name": "standard_sync$m$2$m$1", "symbols": [{"literal":"["}, "_", "standard_sync$m$2$m$2", "standard_sync$m$2$m$1$e$1", "_", {"literal":"]"}], "postprocess": ([, , [first], rest]) => [first, ...rest.map(([,,,[toss]]) => toss)]},
-    {"name": "standard_sync$m$2", "symbols": ["standard_sync$m$2$m$1"]},
-    {"name": "standard_sync$m$3", "symbols": [{"literal":","}]},
-    {"name": "standard_sync$m$1$m$2$s$1$m$2$m$2", "symbols": ["standard_sync$m$2"]},
-    {"name": "standard_sync$m$1$m$2$s$1$m$2$m$3", "symbols": ["standard_sync$m$3"]},
-    {"name": "standard_sync$m$1$m$2$s$1$m$2$m$1", "symbols": [{"literal":"("}, "_", "standard_sync$m$1$m$2$s$1$m$2$m$2", "_", "standard_sync$m$1$m$2$s$1$m$2$m$3", "_", "standard_sync$m$1$m$2$s$1$m$2$m$2", "_", {"literal":")"}], "postprocess": ([, , [[release1]], , , , [[release2]]]) => [release1, release2]},
-    {"name": "standard_sync$m$1$m$2$s$1$m$2", "symbols": ["standard_sync$m$1$m$2$s$1$m$2$m$1"]},
-    {"name": "standard_sync$m$1$m$2$s$1$m$3", "symbols": ["_"]},
-    {"name": "standard_sync$m$1$m$2$s$1$m$1$e$1", "symbols": []},
-    {"name": "standard_sync$m$1$m$2$s$1$m$1$e$1$s$1", "symbols": ["standard_sync$m$1$m$2$s$1$m$3", "standard_sync$m$1$m$2$s$1$m$2"]},
-    {"name": "standard_sync$m$1$m$2$s$1$m$1$e$1", "symbols": ["standard_sync$m$1$m$2$s$1$m$1$e$1", "standard_sync$m$1$m$2$s$1$m$1$e$1$s$1"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
-    {"name": "standard_sync$m$1$m$2$s$1$m$1", "symbols": ["standard_sync$m$1$m$2$s$1$m$2", "standard_sync$m$1$m$2$s$1$m$1$e$1"], "postprocess": ([[first], rest]) => [first, ...rest.map(([,[toss]]) => toss)]},
-    {"name": "standard_sync$m$1$m$2$s$1$e$1", "symbols": [{"literal":"*"}], "postprocess": id},
-    {"name": "standard_sync$m$1$m$2$s$1$e$1", "symbols": [], "postprocess": function(d) {return null;}},
-    {"name": "standard_sync$m$1$m$2$s$1", "symbols": ["standard_sync$m$1$m$2$s$1$m$1", "_", "standard_sync$m$1$m$2$s$1$e$1"]},
-    {"name": "standard_sync$m$1$m$2", "symbols": ["standard_sync$m$1$m$2$s$1"]},
-    {"name": "standard_sync$m$1$m$1", "symbols": ["_", "standard_sync$m$1$m$2", "_"], "postprocess": ([, [match]]) => match},
-    {"name": "standard_sync$m$1", "symbols": ["standard_sync$m$1$m$1"], "postprocess": ([[actions, , mirrored]]) => mirrored ? mirror(actions) : actions},
-    {"name": "standard_sync", "symbols": ["standard_sync$m$1"], "postprocess": ([throws]) => finaliseSync(throws)},
-    {"name": "standard_sync$m$5$m$2", "symbols": ["standard_sync_toss"]},
-    {"name": "standard_sync$m$5$m$3", "symbols": [{"literal":" "}]},
-    {"name": "standard_sync$m$5$m$1", "symbols": ["standard_sync$m$5$m$2"], "postprocess": id},
-    {"name": "standard_sync$m$5$m$1$e$1$s$1", "symbols": ["_", "standard_sync$m$5$m$3", "_", "standard_sync$m$5$m$2"]},
-    {"name": "standard_sync$m$5$m$1$e$1", "symbols": ["standard_sync$m$5$m$1$e$1$s$1"]},
-    {"name": "standard_sync$m$5$m$1$e$1$s$2", "symbols": ["_", "standard_sync$m$5$m$3", "_", "standard_sync$m$5$m$2"]},
-    {"name": "standard_sync$m$5$m$1$e$1", "symbols": ["standard_sync$m$5$m$1$e$1", "standard_sync$m$5$m$1$e$1$s$2"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
-    {"name": "standard_sync$m$5$m$1", "symbols": [{"literal":"["}, "_", "standard_sync$m$5$m$2", "standard_sync$m$5$m$1$e$1", "_", {"literal":"]"}], "postprocess": ([, , [first], rest]) => [first, ...rest.map(([,,,[toss]]) => toss)]},
-    {"name": "standard_sync$m$5", "symbols": ["standard_sync$m$5$m$1"]},
-    {"name": "standard_sync$m$6", "symbols": [{"literal":" "}]},
-    {"name": "standard_sync$m$4$m$2$s$1$m$2$m$2", "symbols": ["standard_sync$m$5"]},
-    {"name": "standard_sync$m$4$m$2$s$1$m$2$m$3", "symbols": ["standard_sync$m$6"]},
-    {"name": "standard_sync$m$4$m$2$s$1$m$2$m$1", "symbols": [{"literal":"("}, "_", "standard_sync$m$4$m$2$s$1$m$2$m$2", "_", "standard_sync$m$4$m$2$s$1$m$2$m$3", "_", "standard_sync$m$4$m$2$s$1$m$2$m$2", "_", {"literal":")"}], "postprocess": ([, , [[release1]], , , , [[release2]]]) => [release1, release2]},
-    {"name": "standard_sync$m$4$m$2$s$1$m$2", "symbols": ["standard_sync$m$4$m$2$s$1$m$2$m$1"]},
-    {"name": "standard_sync$m$4$m$2$s$1$m$3", "symbols": ["_"]},
-    {"name": "standard_sync$m$4$m$2$s$1$m$1$e$1", "symbols": []},
-    {"name": "standard_sync$m$4$m$2$s$1$m$1$e$1$s$1", "symbols": ["standard_sync$m$4$m$2$s$1$m$3", "standard_sync$m$4$m$2$s$1$m$2"]},
-    {"name": "standard_sync$m$4$m$2$s$1$m$1$e$1", "symbols": ["standard_sync$m$4$m$2$s$1$m$1$e$1", "standard_sync$m$4$m$2$s$1$m$1$e$1$s$1"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
-    {"name": "standard_sync$m$4$m$2$s$1$m$1", "symbols": ["standard_sync$m$4$m$2$s$1$m$2", "standard_sync$m$4$m$2$s$1$m$1$e$1"], "postprocess": ([[first], rest]) => [first, ...rest.map(([,[toss]]) => toss)]},
-    {"name": "standard_sync$m$4$m$2$s$1$e$1", "symbols": [{"literal":"*"}], "postprocess": id},
-    {"name": "standard_sync$m$4$m$2$s$1$e$1", "symbols": [], "postprocess": function(d) {return null;}},
-    {"name": "standard_sync$m$4$m$2$s$1", "symbols": ["standard_sync$m$4$m$2$s$1$m$1", "_", "standard_sync$m$4$m$2$s$1$e$1"]},
-    {"name": "standard_sync$m$4$m$2", "symbols": ["standard_sync$m$4$m$2$s$1"]},
-    {"name": "standard_sync$m$4$m$1", "symbols": ["_", "standard_sync$m$4$m$2", "_"], "postprocess": ([, [match]]) => match},
-    {"name": "standard_sync$m$4", "symbols": ["standard_sync$m$4$m$1"], "postprocess": ([[actions, , mirrored]]) => mirrored ? mirror(actions) : actions},
-    {"name": "standard_sync", "symbols": ["standard_sync$m$4"], "postprocess": ([throws]) => finaliseSync(throws)},
-    {"name": "standard_sync_toss$e$1", "symbols": ["cross"], "postprocess": id},
-    {"name": "standard_sync_toss$e$1", "symbols": [], "postprocess": function(d) {return null;}},
-    {"name": "standard_sync_toss", "symbols": ["integer_even", "standard_sync_toss$e$1"], "postprocess": ([value, cross]) => ({ value, cross: !!cross })},
-    {"name": "compressed_async$m$2$m$2", "symbols": ["compressed_async_toss"]},
-    {"name": "compressed_async$m$2$m$3", "symbols": []},
-    {"name": "compressed_async$m$2$m$1", "symbols": ["compressed_async$m$2$m$2"], "postprocess": id},
-    {"name": "compressed_async$m$2$m$1$e$1$s$1", "symbols": ["compressed_async$m$2$m$3", "compressed_async$m$2$m$2"]},
-    {"name": "compressed_async$m$2$m$1$e$1", "symbols": ["compressed_async$m$2$m$1$e$1$s$1"]},
-    {"name": "compressed_async$m$2$m$1$e$1$s$2", "symbols": ["compressed_async$m$2$m$3", "compressed_async$m$2$m$2"]},
-    {"name": "compressed_async$m$2$m$1$e$1", "symbols": ["compressed_async$m$2$m$1$e$1", "compressed_async$m$2$m$1$e$1$s$2"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
-    {"name": "compressed_async$m$2$m$1", "symbols": [{"literal":"["}, "compressed_async$m$2$m$2", "compressed_async$m$2$m$1$e$1", {"literal":"]"}], "postprocess": ([, [first], rest]) => [first, ...rest.map(([,[toss]]) => toss)]},
-    {"name": "compressed_async$m$2", "symbols": ["compressed_async$m$2$m$1"]},
-    {"name": "compressed_async$m$3", "symbols": []},
-    {"name": "compressed_async$m$1$m$2$m$2", "symbols": ["compressed_async$m$2"]},
-    {"name": "compressed_async$m$1$m$2$m$3", "symbols": ["compressed_async$m$3"]},
-    {"name": "compressed_async$m$1$m$2$m$1$e$1", "symbols": []},
-    {"name": "compressed_async$m$1$m$2$m$1$e$1$s$1", "symbols": ["compressed_async$m$1$m$2$m$3", "compressed_async$m$1$m$2$m$2"]},
-    {"name": "compressed_async$m$1$m$2$m$1$e$1", "symbols": ["compressed_async$m$1$m$2$m$1$e$1", "compressed_async$m$1$m$2$m$1$e$1$s$1"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
-    {"name": "compressed_async$m$1$m$2$m$1", "symbols": ["compressed_async$m$1$m$2$m$2", "compressed_async$m$1$m$2$m$1$e$1"], "postprocess": ([[first], rest]) => [first, ...rest.map(([,[toss]]) => toss)]},
-    {"name": "compressed_async$m$1$m$2", "symbols": ["compressed_async$m$1$m$2$m$1"]},
-    {"name": "compressed_async$m$1$m$1", "symbols": ["_", "compressed_async$m$1$m$2", "_"], "postprocess": ([, [match]]) => match},
-    {"name": "compressed_async$m$1", "symbols": ["compressed_async$m$1$m$1"], "postprocess": id},
-    {"name": "compressed_async", "symbols": ["compressed_async$m$1"], "postprocess": ([throws]) => finaliseAsync(throws)},
-    {"name": "compressed_async_toss", "symbols": ["digit"], "postprocess": ([value]) => ({ value })},
-    {"name": "compressed_async_toss", "symbols": ["letter"], "postprocess": ([value]) => ({ value: numerify(value) })},
-    {"name": "compressed_sync$m$2$m$2", "symbols": ["compressed_sync_toss"]},
-    {"name": "compressed_sync$m$2$m$3", "symbols": []},
-    {"name": "compressed_sync$m$2$m$1", "symbols": ["compressed_sync$m$2$m$2"], "postprocess": id},
-    {"name": "compressed_sync$m$2$m$1$e$1$s$1", "symbols": ["compressed_sync$m$2$m$3", "compressed_sync$m$2$m$2"]},
-    {"name": "compressed_sync$m$2$m$1$e$1", "symbols": ["compressed_sync$m$2$m$1$e$1$s$1"]},
-    {"name": "compressed_sync$m$2$m$1$e$1$s$2", "symbols": ["compressed_sync$m$2$m$3", "compressed_sync$m$2$m$2"]},
-    {"name": "compressed_sync$m$2$m$1$e$1", "symbols": ["compressed_sync$m$2$m$1$e$1", "compressed_sync$m$2$m$1$e$1$s$2"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
-    {"name": "compressed_sync$m$2$m$1", "symbols": [{"literal":"["}, "compressed_sync$m$2$m$2", "compressed_sync$m$2$m$1$e$1", {"literal":"]"}], "postprocess": ([, [first], rest]) => [first, ...rest.map(([,[toss]]) => toss)]},
-    {"name": "compressed_sync$m$2", "symbols": ["compressed_sync$m$2$m$1"]},
-    {"name": "compressed_sync$m$3", "symbols": [{"literal":","}]},
-    {"name": "compressed_sync$m$1$m$2$s$1$e$1$m$2", "symbols": ["compressed_sync$m$2"]},
-    {"name": "compressed_sync$m$1$m$2$s$1$e$1$m$3", "symbols": ["compressed_sync$m$3"]},
-    {"name": "compressed_sync$m$1$m$2$s$1$e$1$m$1", "symbols": [{"literal":"("}, "compressed_sync$m$1$m$2$s$1$e$1$m$2", "compressed_sync$m$1$m$2$s$1$e$1$m$3", "compressed_sync$m$1$m$2$s$1$e$1$m$2", {"literal":")"}], "postprocess": ([, [[release1]], , [[release2]]]) => [release1, release2]},
-    {"name": "compressed_sync$m$1$m$2$s$1$e$1", "symbols": ["compressed_sync$m$1$m$2$s$1$e$1$m$1"]},
-    {"name": "compressed_sync$m$1$m$2$s$1$e$1$m$5", "symbols": ["compressed_sync$m$2"]},
-    {"name": "compressed_sync$m$1$m$2$s$1$e$1$m$6", "symbols": ["compressed_sync$m$3"]},
-    {"name": "compressed_sync$m$1$m$2$s$1$e$1$m$4", "symbols": [{"literal":"("}, "compressed_sync$m$1$m$2$s$1$e$1$m$5", "compressed_sync$m$1$m$2$s$1$e$1$m$6", "compressed_sync$m$1$m$2$s$1$e$1$m$5", {"literal":")"}], "postprocess": ([, [[release1]], , [[release2]]]) => [release1, release2]},
-    {"name": "compressed_sync$m$1$m$2$s$1$e$1", "symbols": ["compressed_sync$m$1$m$2$s$1$e$1", "compressed_sync$m$1$m$2$s$1$e$1$m$4"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
-    {"name": "compressed_sync$m$1$m$2$s$1$e$2", "symbols": [{"literal":"*"}], "postprocess": id},
-    {"name": "compressed_sync$m$1$m$2$s$1$e$2", "symbols": [], "postprocess": function(d) {return null;}},
-    {"name": "compressed_sync$m$1$m$2$s$1", "symbols": ["compressed_sync$m$1$m$2$s$1$e$1", "compressed_sync$m$1$m$2$s$1$e$2"]},
-    {"name": "compressed_sync$m$1$m$2", "symbols": ["compressed_sync$m$1$m$2$s$1"]},
-    {"name": "compressed_sync$m$1$m$1", "symbols": ["_", "compressed_sync$m$1$m$2", "_"], "postprocess": ([, [match]]) => match},
-    {"name": "compressed_sync$m$1", "symbols": ["compressed_sync$m$1$m$1"], "postprocess": ([[actions, mirrored]])   => mirrored ? mirror(actions) : actions},
-    {"name": "compressed_sync", "symbols": ["compressed_sync$m$1"], "postprocess": ([throws]) => finaliseSync(throws)},
-    {"name": "compressed_sync$m$5$m$2", "symbols": ["compressed_sync_toss"]},
-    {"name": "compressed_sync$m$5$m$3", "symbols": []},
-    {"name": "compressed_sync$m$5$m$1", "symbols": ["compressed_sync$m$5$m$2"], "postprocess": id},
-    {"name": "compressed_sync$m$5$m$1$e$1$s$1", "symbols": ["compressed_sync$m$5$m$3", "compressed_sync$m$5$m$2"]},
-    {"name": "compressed_sync$m$5$m$1$e$1", "symbols": ["compressed_sync$m$5$m$1$e$1$s$1"]},
-    {"name": "compressed_sync$m$5$m$1$e$1$s$2", "symbols": ["compressed_sync$m$5$m$3", "compressed_sync$m$5$m$2"]},
-    {"name": "compressed_sync$m$5$m$1$e$1", "symbols": ["compressed_sync$m$5$m$1$e$1", "compressed_sync$m$5$m$1$e$1$s$2"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
-    {"name": "compressed_sync$m$5$m$1", "symbols": [{"literal":"["}, "compressed_sync$m$5$m$2", "compressed_sync$m$5$m$1$e$1", {"literal":"]"}], "postprocess": ([, [first], rest]) => [first, ...rest.map(([,[toss]]) => toss)]},
-    {"name": "compressed_sync$m$5", "symbols": ["compressed_sync$m$5$m$1"]},
-    {"name": "compressed_sync$m$6", "symbols": []},
-    {"name": "compressed_sync$m$4$m$2$s$1$e$1$m$2", "symbols": ["compressed_sync$m$5"]},
-    {"name": "compressed_sync$m$4$m$2$s$1$e$1$m$3", "symbols": ["compressed_sync$m$6"]},
-    {"name": "compressed_sync$m$4$m$2$s$1$e$1$m$1", "symbols": [{"literal":"("}, "compressed_sync$m$4$m$2$s$1$e$1$m$2", "compressed_sync$m$4$m$2$s$1$e$1$m$3", "compressed_sync$m$4$m$2$s$1$e$1$m$2", {"literal":")"}], "postprocess": ([, [[release1]], , [[release2]]]) => [release1, release2]},
-    {"name": "compressed_sync$m$4$m$2$s$1$e$1", "symbols": ["compressed_sync$m$4$m$2$s$1$e$1$m$1"]},
-    {"name": "compressed_sync$m$4$m$2$s$1$e$1$m$5", "symbols": ["compressed_sync$m$5"]},
-    {"name": "compressed_sync$m$4$m$2$s$1$e$1$m$6", "symbols": ["compressed_sync$m$6"]},
-    {"name": "compressed_sync$m$4$m$2$s$1$e$1$m$4", "symbols": [{"literal":"("}, "compressed_sync$m$4$m$2$s$1$e$1$m$5", "compressed_sync$m$4$m$2$s$1$e$1$m$6", "compressed_sync$m$4$m$2$s$1$e$1$m$5", {"literal":")"}], "postprocess": ([, [[release1]], , [[release2]]]) => [release1, release2]},
-    {"name": "compressed_sync$m$4$m$2$s$1$e$1", "symbols": ["compressed_sync$m$4$m$2$s$1$e$1", "compressed_sync$m$4$m$2$s$1$e$1$m$4"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
-    {"name": "compressed_sync$m$4$m$2$s$1$e$2", "symbols": [{"literal":"*"}], "postprocess": id},
-    {"name": "compressed_sync$m$4$m$2$s$1$e$2", "symbols": [], "postprocess": function(d) {return null;}},
-    {"name": "compressed_sync$m$4$m$2$s$1", "symbols": ["compressed_sync$m$4$m$2$s$1$e$1", "compressed_sync$m$4$m$2$s$1$e$2"]},
-    {"name": "compressed_sync$m$4$m$2", "symbols": ["compressed_sync$m$4$m$2$s$1"]},
-    {"name": "compressed_sync$m$4$m$1", "symbols": ["_", "compressed_sync$m$4$m$2", "_"], "postprocess": ([, [match]]) => match},
-    {"name": "compressed_sync$m$4", "symbols": ["compressed_sync$m$4$m$1"], "postprocess": ([[actions, mirrored]])   => mirrored ? mirror(actions) : actions},
-    {"name": "compressed_sync", "symbols": ["compressed_sync$m$4"], "postprocess": ([throws]) => finaliseSync(throws)},
-    {"name": "compressed_sync_toss$e$1", "symbols": ["cross"], "postprocess": id},
-    {"name": "compressed_sync_toss$e$1", "symbols": [], "postprocess": function(d) {return null;}},
-    {"name": "compressed_sync_toss", "symbols": ["digit_even", "compressed_sync_toss$e$1"], "postprocess": ([value, cross]) => ({ value,                  cross: !!cross })},
-    {"name": "compressed_sync_toss$e$2", "symbols": ["cross"], "postprocess": id},
-    {"name": "compressed_sync_toss$e$2", "symbols": [], "postprocess": function(d) {return null;}},
-    {"name": "compressed_sync_toss", "symbols": ["letter_even", "compressed_sync_toss$e$2"], "postprocess": ([value, cross]) => ({ value: numerify(value), cross: !!cross })},
-    {"name": "passing_async$m$2$m$2$m$2$m$2", "symbols": ["pass"]},
-    {"name": "passing_async$m$2$m$2$m$2$m$1$e$1", "symbols": ["passing_async$m$2$m$2$m$2$m$2"], "postprocess": id},
-    {"name": "passing_async$m$2$m$2$m$2$m$1$e$1", "symbols": [], "postprocess": function(d) {return null;}},
-    {"name": "passing_async$m$2$m$2$m$2$m$1", "symbols": ["integer", "passing_async$m$2$m$2$m$2$m$1$e$1"], "postprocess": ([value, pass]) => ({ value, pass: pass ? pass[0] : false })},
-    {"name": "passing_async$m$2$m$2$m$2", "symbols": ["passing_async$m$2$m$2$m$2$m$1"]},
-    {"name": "passing_async$m$2$m$2$m$3", "symbols": [{"literal":","}]},
-    {"name": "passing_async$m$2$m$2$m$1", "symbols": ["passing_async$m$2$m$2$m$2"], "postprocess": id},
-    {"name": "passing_async$m$2$m$2$m$1$e$1$s$1", "symbols": ["_", "passing_async$m$2$m$2$m$3", "_", "passing_async$m$2$m$2$m$2"]},
-    {"name": "passing_async$m$2$m$2$m$1$e$1", "symbols": ["passing_async$m$2$m$2$m$1$e$1$s$1"]},
-    {"name": "passing_async$m$2$m$2$m$1$e$1$s$2", "symbols": ["_", "passing_async$m$2$m$2$m$3", "_", "passing_async$m$2$m$2$m$2"]},
-    {"name": "passing_async$m$2$m$2$m$1$e$1", "symbols": ["passing_async$m$2$m$2$m$1$e$1", "passing_async$m$2$m$2$m$1$e$1$s$2"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
-    {"name": "passing_async$m$2$m$2$m$1", "symbols": [{"literal":"["}, "_", "passing_async$m$2$m$2$m$2", "passing_async$m$2$m$2$m$1$e$1", "_", {"literal":"]"}], "postprocess": ([, , [first], rest]) => [first, ...rest.map(([,,,[toss]]) => toss)]},
-    {"name": "passing_async$m$2$m$2", "symbols": ["passing_async$m$2$m$2$m$1"]},
-    {"name": "passing_async$m$2$m$3", "symbols": [{"literal":","}]},
-    {"name": "passing_async$m$2$m$1$m$2$m$2", "symbols": ["passing_async$m$2$m$2"]},
-    {"name": "passing_async$m$2$m$1$m$2$m$3", "symbols": ["passing_async$m$2$m$3"]},
-    {"name": "passing_async$m$2$m$1$m$2$m$1$e$1", "symbols": []},
-    {"name": "passing_async$m$2$m$1$m$2$m$1$e$1$s$1", "symbols": ["_", "passing_async$m$2$m$1$m$2$m$3", "_", "passing_async$m$2$m$1$m$2$m$2"]},
-    {"name": "passing_async$m$2$m$1$m$2$m$1$e$1", "symbols": ["passing_async$m$2$m$1$m$2$m$1$e$1", "passing_async$m$2$m$1$m$2$m$1$e$1$s$1"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
-    {"name": "passing_async$m$2$m$1$m$2$m$1", "symbols": ["passing_async$m$2$m$1$m$2$m$2", "passing_async$m$2$m$1$m$2$m$1$e$1"], "postprocess": ([[first], rest]) => [first, ...rest.map(([,,,[toss]]) => toss)]},
-    {"name": "passing_async$m$2$m$1$m$2", "symbols": ["passing_async$m$2$m$1$m$2$m$1"]},
-    {"name": "passing_async$m$2$m$1$m$1", "symbols": ["_", "passing_async$m$2$m$1$m$2", "_"], "postprocess": ([, [match]]) => match},
-    {"name": "passing_async$m$2$m$1", "symbols": ["passing_async$m$2$m$1$m$1"], "postprocess": id},
-    {"name": "passing_async$m$2", "symbols": ["passing_async$m$2$m$1"]},
-    {"name": "passing_async$m$1$m$2$s$1$e$1$s$1", "symbols": [{"literal":"|"}, "passing_async$m$2"]},
-    {"name": "passing_async$m$1$m$2$s$1$e$1", "symbols": ["passing_async$m$1$m$2$s$1$e$1$s$1"]},
-    {"name": "passing_async$m$1$m$2$s$1$e$1$s$2", "symbols": [{"literal":"|"}, "passing_async$m$2"]},
-    {"name": "passing_async$m$1$m$2$s$1$e$1", "symbols": ["passing_async$m$1$m$2$s$1$e$1", "passing_async$m$1$m$2$s$1$e$1$s$2"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
-    {"name": "passing_async$m$1$m$2$s$1", "symbols": [{"literal":"<"}, "passing_async$m$2", "passing_async$m$1$m$2$s$1$e$1", {"literal":">"}]},
-    {"name": "passing_async$m$1$m$2", "symbols": ["passing_async$m$1$m$2$s$1"]},
-    {"name": "passing_async$m$1$m$1", "symbols": ["_", "passing_async$m$1$m$2", "_"], "postprocess": ([, [match]]) => match},
-    {"name": "passing_async$m$1", "symbols": ["passing_async$m$1$m$1"], "postprocess": ([[, [first], rest]]) => [first, ...rest.map(([,[match]]) => match)]},
-    {"name": "passing_async", "symbols": ["passing_async$m$1"], "postprocess": ([siteswaps]) => finalisePassingAsync(siteswaps)},
-    {"name": "passing_async$m$4$m$2$m$2$m$2", "symbols": ["pass"]},
-    {"name": "passing_async$m$4$m$2$m$2$m$1$e$1", "symbols": ["passing_async$m$4$m$2$m$2$m$2"], "postprocess": id},
-    {"name": "passing_async$m$4$m$2$m$2$m$1$e$1", "symbols": [], "postprocess": function(d) {return null;}},
-    {"name": "passing_async$m$4$m$2$m$2$m$1", "symbols": ["integer", "passing_async$m$4$m$2$m$2$m$1$e$1"], "postprocess": ([value, pass]) => ({ value, pass: pass ? pass[0] : false })},
-    {"name": "passing_async$m$4$m$2$m$2", "symbols": ["passing_async$m$4$m$2$m$2$m$1"]},
-    {"name": "passing_async$m$4$m$2$m$3", "symbols": [{"literal":" "}]},
-    {"name": "passing_async$m$4$m$2$m$1", "symbols": ["passing_async$m$4$m$2$m$2"], "postprocess": id},
-    {"name": "passing_async$m$4$m$2$m$1$e$1$s$1", "symbols": ["_", "passing_async$m$4$m$2$m$3", "_", "passing_async$m$4$m$2$m$2"]},
-    {"name": "passing_async$m$4$m$2$m$1$e$1", "symbols": ["passing_async$m$4$m$2$m$1$e$1$s$1"]},
-    {"name": "passing_async$m$4$m$2$m$1$e$1$s$2", "symbols": ["_", "passing_async$m$4$m$2$m$3", "_", "passing_async$m$4$m$2$m$2"]},
-    {"name": "passing_async$m$4$m$2$m$1$e$1", "symbols": ["passing_async$m$4$m$2$m$1$e$1", "passing_async$m$4$m$2$m$1$e$1$s$2"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
-    {"name": "passing_async$m$4$m$2$m$1", "symbols": [{"literal":"["}, "_", "passing_async$m$4$m$2$m$2", "passing_async$m$4$m$2$m$1$e$1", "_", {"literal":"]"}], "postprocess": ([, , [first], rest]) => [first, ...rest.map(([,,,[toss]]) => toss)]},
-    {"name": "passing_async$m$4$m$2", "symbols": ["passing_async$m$4$m$2$m$1"]},
-    {"name": "passing_async$m$4$m$3", "symbols": [{"literal":" "}]},
-    {"name": "passing_async$m$4$m$1$m$2$m$2", "symbols": ["passing_async$m$4$m$2"]},
-    {"name": "passing_async$m$4$m$1$m$2$m$3", "symbols": ["passing_async$m$4$m$3"]},
-    {"name": "passing_async$m$4$m$1$m$2$m$1$e$1", "symbols": []},
-    {"name": "passing_async$m$4$m$1$m$2$m$1$e$1$s$1", "symbols": ["_", "passing_async$m$4$m$1$m$2$m$3", "_", "passing_async$m$4$m$1$m$2$m$2"]},
-    {"name": "passing_async$m$4$m$1$m$2$m$1$e$1", "symbols": ["passing_async$m$4$m$1$m$2$m$1$e$1", "passing_async$m$4$m$1$m$2$m$1$e$1$s$1"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
-    {"name": "passing_async$m$4$m$1$m$2$m$1", "symbols": ["passing_async$m$4$m$1$m$2$m$2", "passing_async$m$4$m$1$m$2$m$1$e$1"], "postprocess": ([[first], rest]) => [first, ...rest.map(([,,,[toss]]) => toss)]},
-    {"name": "passing_async$m$4$m$1$m$2", "symbols": ["passing_async$m$4$m$1$m$2$m$1"]},
-    {"name": "passing_async$m$4$m$1$m$1", "symbols": ["_", "passing_async$m$4$m$1$m$2", "_"], "postprocess": ([, [match]]) => match},
-    {"name": "passing_async$m$4$m$1", "symbols": ["passing_async$m$4$m$1$m$1"], "postprocess": id},
-    {"name": "passing_async$m$4", "symbols": ["passing_async$m$4$m$1"]},
-    {"name": "passing_async$m$3$m$2$s$1$e$1$s$1", "symbols": [{"literal":"|"}, "passing_async$m$4"]},
-    {"name": "passing_async$m$3$m$2$s$1$e$1", "symbols": ["passing_async$m$3$m$2$s$1$e$1$s$1"]},
-    {"name": "passing_async$m$3$m$2$s$1$e$1$s$2", "symbols": [{"literal":"|"}, "passing_async$m$4"]},
-    {"name": "passing_async$m$3$m$2$s$1$e$1", "symbols": ["passing_async$m$3$m$2$s$1$e$1", "passing_async$m$3$m$2$s$1$e$1$s$2"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
-    {"name": "passing_async$m$3$m$2$s$1", "symbols": [{"literal":"<"}, "passing_async$m$4", "passing_async$m$3$m$2$s$1$e$1", {"literal":">"}]},
-    {"name": "passing_async$m$3$m$2", "symbols": ["passing_async$m$3$m$2$s$1"]},
-    {"name": "passing_async$m$3$m$1", "symbols": ["_", "passing_async$m$3$m$2", "_"], "postprocess": ([, [match]]) => match},
-    {"name": "passing_async$m$3", "symbols": ["passing_async$m$3$m$1"], "postprocess": ([[, [first], rest]]) => [first, ...rest.map(([,[match]]) => match)]},
-    {"name": "passing_async", "symbols": ["passing_async$m$3"], "postprocess": ([siteswaps]) => finalisePassingAsync(siteswaps)},
-    {"name": "passing_async$m$6$m$2$m$2$m$2", "symbols": ["crosspass"]},
-    {"name": "passing_async$m$6$m$2$m$2$m$1$e$1", "symbols": ["passing_async$m$6$m$2$m$2$m$2"], "postprocess": id},
-    {"name": "passing_async$m$6$m$2$m$2$m$1$e$1", "symbols": [], "postprocess": function(d) {return null;}},
-    {"name": "passing_async$m$6$m$2$m$2$m$1", "symbols": ["integer", "passing_async$m$6$m$2$m$2$m$1$e$1"], "postprocess": ([value, pass]) => ({ value, pass: pass ? pass[0] : false })},
-    {"name": "passing_async$m$6$m$2$m$2", "symbols": ["passing_async$m$6$m$2$m$2$m$1"]},
-    {"name": "passing_async$m$6$m$2$m$3", "symbols": [{"literal":","}]},
-    {"name": "passing_async$m$6$m$2$m$1", "symbols": ["passing_async$m$6$m$2$m$2"], "postprocess": id},
-    {"name": "passing_async$m$6$m$2$m$1$e$1$s$1", "symbols": ["_", "passing_async$m$6$m$2$m$3", "_", "passing_async$m$6$m$2$m$2"]},
-    {"name": "passing_async$m$6$m$2$m$1$e$1", "symbols": ["passing_async$m$6$m$2$m$1$e$1$s$1"]},
-    {"name": "passing_async$m$6$m$2$m$1$e$1$s$2", "symbols": ["_", "passing_async$m$6$m$2$m$3", "_", "passing_async$m$6$m$2$m$2"]},
-    {"name": "passing_async$m$6$m$2$m$1$e$1", "symbols": ["passing_async$m$6$m$2$m$1$e$1", "passing_async$m$6$m$2$m$1$e$1$s$2"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
-    {"name": "passing_async$m$6$m$2$m$1", "symbols": [{"literal":"["}, "_", "passing_async$m$6$m$2$m$2", "passing_async$m$6$m$2$m$1$e$1", "_", {"literal":"]"}], "postprocess": ([, , [first], rest]) => [first, ...rest.map(([,,,[toss]]) => toss)]},
-    {"name": "passing_async$m$6$m$2", "symbols": ["passing_async$m$6$m$2$m$1"]},
-    {"name": "passing_async$m$6$m$3", "symbols": [{"literal":","}]},
-    {"name": "passing_async$m$6$m$1$m$2$m$2", "symbols": ["passing_async$m$6$m$2"]},
-    {"name": "passing_async$m$6$m$1$m$2$m$3", "symbols": ["passing_async$m$6$m$3"]},
-    {"name": "passing_async$m$6$m$1$m$2$m$1$e$1", "symbols": []},
-    {"name": "passing_async$m$6$m$1$m$2$m$1$e$1$s$1", "symbols": ["_", "passing_async$m$6$m$1$m$2$m$3", "_", "passing_async$m$6$m$1$m$2$m$2"]},
-    {"name": "passing_async$m$6$m$1$m$2$m$1$e$1", "symbols": ["passing_async$m$6$m$1$m$2$m$1$e$1", "passing_async$m$6$m$1$m$2$m$1$e$1$s$1"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
-    {"name": "passing_async$m$6$m$1$m$2$m$1", "symbols": ["passing_async$m$6$m$1$m$2$m$2", "passing_async$m$6$m$1$m$2$m$1$e$1"], "postprocess": ([[first], rest]) => [first, ...rest.map(([,,,[toss]]) => toss)]},
-    {"name": "passing_async$m$6$m$1$m$2", "symbols": ["passing_async$m$6$m$1$m$2$m$1"]},
-    {"name": "passing_async$m$6$m$1$m$1", "symbols": ["_", "passing_async$m$6$m$1$m$2", "_"], "postprocess": ([, [match]]) => match},
-    {"name": "passing_async$m$6$m$1", "symbols": ["passing_async$m$6$m$1$m$1"], "postprocess": id},
-    {"name": "passing_async$m$6", "symbols": ["passing_async$m$6$m$1"]},
-    {"name": "passing_async$m$5$m$2$s$1", "symbols": [{"literal":"<"}, "passing_async$m$6", {"literal":"|"}, "passing_async$m$6", {"literal":">"}]},
-    {"name": "passing_async$m$5$m$2", "symbols": ["passing_async$m$5$m$2$s$1"]},
-    {"name": "passing_async$m$5$m$1", "symbols": ["_", "passing_async$m$5$m$2", "_"], "postprocess": ([, [match]]) => match},
-    {"name": "passing_async$m$5", "symbols": ["passing_async$m$5$m$1"], "postprocess": ([[, [first], , [second]]]) => [first, second]},
-    {"name": "passing_async", "symbols": ["passing_async$m$5"], "postprocess": ([siteswaps]) => finalisePassingAsync(siteswaps)},
-    {"name": "passing_async$m$8$m$2$m$2$m$2", "symbols": ["crosspass"]},
-    {"name": "passing_async$m$8$m$2$m$2$m$1$e$1", "symbols": ["passing_async$m$8$m$2$m$2$m$2"], "postprocess": id},
-    {"name": "passing_async$m$8$m$2$m$2$m$1$e$1", "symbols": [], "postprocess": function(d) {return null;}},
-    {"name": "passing_async$m$8$m$2$m$2$m$1", "symbols": ["integer", "passing_async$m$8$m$2$m$2$m$1$e$1"], "postprocess": ([value, pass]) => ({ value, pass: pass ? pass[0] : false })},
-    {"name": "passing_async$m$8$m$2$m$2", "symbols": ["passing_async$m$8$m$2$m$2$m$1"]},
-    {"name": "passing_async$m$8$m$2$m$3", "symbols": [{"literal":" "}]},
-    {"name": "passing_async$m$8$m$2$m$1", "symbols": ["passing_async$m$8$m$2$m$2"], "postprocess": id},
-    {"name": "passing_async$m$8$m$2$m$1$e$1$s$1", "symbols": ["_", "passing_async$m$8$m$2$m$3", "_", "passing_async$m$8$m$2$m$2"]},
-    {"name": "passing_async$m$8$m$2$m$1$e$1", "symbols": ["passing_async$m$8$m$2$m$1$e$1$s$1"]},
-    {"name": "passing_async$m$8$m$2$m$1$e$1$s$2", "symbols": ["_", "passing_async$m$8$m$2$m$3", "_", "passing_async$m$8$m$2$m$2"]},
-    {"name": "passing_async$m$8$m$2$m$1$e$1", "symbols": ["passing_async$m$8$m$2$m$1$e$1", "passing_async$m$8$m$2$m$1$e$1$s$2"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
-    {"name": "passing_async$m$8$m$2$m$1", "symbols": [{"literal":"["}, "_", "passing_async$m$8$m$2$m$2", "passing_async$m$8$m$2$m$1$e$1", "_", {"literal":"]"}], "postprocess": ([, , [first], rest]) => [first, ...rest.map(([,,,[toss]]) => toss)]},
-    {"name": "passing_async$m$8$m$2", "symbols": ["passing_async$m$8$m$2$m$1"]},
-    {"name": "passing_async$m$8$m$3", "symbols": [{"literal":" "}]},
-    {"name": "passing_async$m$8$m$1$m$2$m$2", "symbols": ["passing_async$m$8$m$2"]},
-    {"name": "passing_async$m$8$m$1$m$2$m$3", "symbols": ["passing_async$m$8$m$3"]},
-    {"name": "passing_async$m$8$m$1$m$2$m$1$e$1", "symbols": []},
-    {"name": "passing_async$m$8$m$1$m$2$m$1$e$1$s$1", "symbols": ["_", "passing_async$m$8$m$1$m$2$m$3", "_", "passing_async$m$8$m$1$m$2$m$2"]},
-    {"name": "passing_async$m$8$m$1$m$2$m$1$e$1", "symbols": ["passing_async$m$8$m$1$m$2$m$1$e$1", "passing_async$m$8$m$1$m$2$m$1$e$1$s$1"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
-    {"name": "passing_async$m$8$m$1$m$2$m$1", "symbols": ["passing_async$m$8$m$1$m$2$m$2", "passing_async$m$8$m$1$m$2$m$1$e$1"], "postprocess": ([[first], rest]) => [first, ...rest.map(([,,,[toss]]) => toss)]},
-    {"name": "passing_async$m$8$m$1$m$2", "symbols": ["passing_async$m$8$m$1$m$2$m$1"]},
-    {"name": "passing_async$m$8$m$1$m$1", "symbols": ["_", "passing_async$m$8$m$1$m$2", "_"], "postprocess": ([, [match]]) => match},
-    {"name": "passing_async$m$8$m$1", "symbols": ["passing_async$m$8$m$1$m$1"], "postprocess": id},
-    {"name": "passing_async$m$8", "symbols": ["passing_async$m$8$m$1"]},
-    {"name": "passing_async$m$7$m$2$s$1", "symbols": [{"literal":"<"}, "passing_async$m$8", {"literal":"|"}, "passing_async$m$8", {"literal":">"}]},
-    {"name": "passing_async$m$7$m$2", "symbols": ["passing_async$m$7$m$2$s$1"]},
-    {"name": "passing_async$m$7$m$1", "symbols": ["_", "passing_async$m$7$m$2", "_"], "postprocess": ([, [match]]) => match},
-    {"name": "passing_async$m$7", "symbols": ["passing_async$m$7$m$1"], "postprocess": ([[, [first], , [second]]]) => [first, second]},
-    {"name": "passing_async", "symbols": ["passing_async$m$7"], "postprocess": ([siteswaps]) => finalisePassingAsync(siteswaps)},
-    {"name": "passing_sync$m$2$m$2$m$2$m$2", "symbols": ["pass"]},
-    {"name": "passing_sync$m$2$m$2$m$2$m$1$m$2", "symbols": ["passing_sync$m$2$m$2$m$2$m$2"]},
-    {"name": "passing_sync$m$2$m$2$m$2$m$1$m$3", "symbols": ["cross"]},
-    {"name": "passing_sync$m$2$m$2$m$2$m$1$m$1", "symbols": [], "postprocess": ()             => [false, false]},
-    {"name": "passing_sync$m$2$m$2$m$2$m$1$m$1", "symbols": ["passing_sync$m$2$m$2$m$2$m$1$m$2"], "postprocess": ([[match]])    => [match, false]},
-    {"name": "passing_sync$m$2$m$2$m$2$m$1$m$1", "symbols": ["passing_sync$m$2$m$2$m$2$m$1$m$3"], "postprocess": ([[match]])    => [false, match]},
-    {"name": "passing_sync$m$2$m$2$m$2$m$1$m$1", "symbols": ["passing_sync$m$2$m$2$m$2$m$1$m$2", "passing_sync$m$2$m$2$m$2$m$1$m$3"], "postprocess": ([[m1], [m2]]) => [m1, m2]},
-    {"name": "passing_sync$m$2$m$2$m$2$m$1$m$1", "symbols": ["passing_sync$m$2$m$2$m$2$m$1$m$3", "passing_sync$m$2$m$2$m$2$m$1$m$2"], "postprocess": ([[m1], [m2]]) => [m2, m1]},
-    {"name": "passing_sync$m$2$m$2$m$2$m$1", "symbols": ["integer_even", "passing_sync$m$2$m$2$m$2$m$1$m$1"], "postprocess": ([value, [pass, cross]]) => ({ value, pass: pass ? pass[0] : false, cross })},
-    {"name": "passing_sync$m$2$m$2$m$2", "symbols": ["passing_sync$m$2$m$2$m$2$m$1"]},
-    {"name": "passing_sync$m$2$m$2$m$3", "symbols": [{"literal":","}]},
-    {"name": "passing_sync$m$2$m$2$m$1", "symbols": ["passing_sync$m$2$m$2$m$2"], "postprocess": id},
-    {"name": "passing_sync$m$2$m$2$m$1$e$1$s$1", "symbols": ["_", "passing_sync$m$2$m$2$m$3", "_", "passing_sync$m$2$m$2$m$2"]},
-    {"name": "passing_sync$m$2$m$2$m$1$e$1", "symbols": ["passing_sync$m$2$m$2$m$1$e$1$s$1"]},
-    {"name": "passing_sync$m$2$m$2$m$1$e$1$s$2", "symbols": ["_", "passing_sync$m$2$m$2$m$3", "_", "passing_sync$m$2$m$2$m$2"]},
-    {"name": "passing_sync$m$2$m$2$m$1$e$1", "symbols": ["passing_sync$m$2$m$2$m$1$e$1", "passing_sync$m$2$m$2$m$1$e$1$s$2"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
-    {"name": "passing_sync$m$2$m$2$m$1", "symbols": [{"literal":"["}, "_", "passing_sync$m$2$m$2$m$2", "passing_sync$m$2$m$2$m$1$e$1", "_", {"literal":"]"}], "postprocess": ([, , [first], rest]) => [first, ...rest.map(([,,,[toss]]) => toss)]},
-    {"name": "passing_sync$m$2$m$2", "symbols": ["passing_sync$m$2$m$2$m$1"]},
-    {"name": "passing_sync$m$2$m$3", "symbols": [{"literal":","}]},
-    {"name": "passing_sync$m$2$m$1$m$2$s$1$m$2$m$2", "symbols": ["passing_sync$m$2$m$2"]},
-    {"name": "passing_sync$m$2$m$1$m$2$s$1$m$2$m$3", "symbols": ["passing_sync$m$2$m$3"]},
-    {"name": "passing_sync$m$2$m$1$m$2$s$1$m$2$m$1", "symbols": [{"literal":"("}, "_", "passing_sync$m$2$m$1$m$2$s$1$m$2$m$2", "_", "passing_sync$m$2$m$1$m$2$s$1$m$2$m$3", "_", "passing_sync$m$2$m$1$m$2$s$1$m$2$m$2", "_", {"literal":")"}], "postprocess": ([, , [[release1]], , , , [[release2]]]) => [release1, release2]},
-    {"name": "passing_sync$m$2$m$1$m$2$s$1$m$2", "symbols": ["passing_sync$m$2$m$1$m$2$s$1$m$2$m$1"]},
-    {"name": "passing_sync$m$2$m$1$m$2$s$1$m$3", "symbols": ["_"]},
-    {"name": "passing_sync$m$2$m$1$m$2$s$1$m$1$e$1", "symbols": []},
-    {"name": "passing_sync$m$2$m$1$m$2$s$1$m$1$e$1$s$1", "symbols": ["passing_sync$m$2$m$1$m$2$s$1$m$3", "passing_sync$m$2$m$1$m$2$s$1$m$2"]},
-    {"name": "passing_sync$m$2$m$1$m$2$s$1$m$1$e$1", "symbols": ["passing_sync$m$2$m$1$m$2$s$1$m$1$e$1", "passing_sync$m$2$m$1$m$2$s$1$m$1$e$1$s$1"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
-    {"name": "passing_sync$m$2$m$1$m$2$s$1$m$1", "symbols": ["passing_sync$m$2$m$1$m$2$s$1$m$2", "passing_sync$m$2$m$1$m$2$s$1$m$1$e$1"], "postprocess": ([[first], rest]) => [first, ...rest.map(([,[toss]]) => toss)]},
-    {"name": "passing_sync$m$2$m$1$m$2$s$1$e$1", "symbols": [{"literal":"*"}], "postprocess": id},
-    {"name": "passing_sync$m$2$m$1$m$2$s$1$e$1", "symbols": [], "postprocess": function(d) {return null;}},
-    {"name": "passing_sync$m$2$m$1$m$2$s$1", "symbols": ["passing_sync$m$2$m$1$m$2$s$1$m$1", "_", "passing_sync$m$2$m$1$m$2$s$1$e$1"]},
-    {"name": "passing_sync$m$2$m$1$m$2", "symbols": ["passing_sync$m$2$m$1$m$2$s$1"]},
-    {"name": "passing_sync$m$2$m$1$m$1", "symbols": ["_", "passing_sync$m$2$m$1$m$2", "_"], "postprocess": ([, [match]]) => match},
-    {"name": "passing_sync$m$2$m$1", "symbols": ["passing_sync$m$2$m$1$m$1"], "postprocess": ([[actions, , mirrored]]) => mirrored ? mirror(actions) : actions},
-    {"name": "passing_sync$m$2", "symbols": ["passing_sync$m$2$m$1"]},
-    {"name": "passing_sync$m$1$m$2$s$1$e$1$s$1", "symbols": [{"literal":"|"}, "passing_sync$m$2"]},
-    {"name": "passing_sync$m$1$m$2$s$1$e$1", "symbols": ["passing_sync$m$1$m$2$s$1$e$1$s$1"]},
-    {"name": "passing_sync$m$1$m$2$s$1$e$1$s$2", "symbols": [{"literal":"|"}, "passing_sync$m$2"]},
-    {"name": "passing_sync$m$1$m$2$s$1$e$1", "symbols": ["passing_sync$m$1$m$2$s$1$e$1", "passing_sync$m$1$m$2$s$1$e$1$s$2"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
-    {"name": "passing_sync$m$1$m$2$s$1", "symbols": [{"literal":"<"}, "passing_sync$m$2", "passing_sync$m$1$m$2$s$1$e$1", {"literal":">"}]},
-    {"name": "passing_sync$m$1$m$2", "symbols": ["passing_sync$m$1$m$2$s$1"]},
-    {"name": "passing_sync$m$1$m$1", "symbols": ["_", "passing_sync$m$1$m$2", "_"], "postprocess": ([, [match]]) => match},
-    {"name": "passing_sync$m$1", "symbols": ["passing_sync$m$1$m$1"], "postprocess": ([[, [first], rest]]) => [first, ...rest.map(([,[match]]) => match)]},
-    {"name": "passing_sync", "symbols": ["passing_sync$m$1"], "postprocess": ([siteswaps]) => finalisePassingSync(siteswaps)},
-    {"name": "passing_sync$m$4$m$2$m$2$m$2", "symbols": ["pass"]},
-    {"name": "passing_sync$m$4$m$2$m$2$m$1$m$2", "symbols": ["passing_sync$m$4$m$2$m$2$m$2"]},
-    {"name": "passing_sync$m$4$m$2$m$2$m$1$m$3", "symbols": ["cross"]},
-    {"name": "passing_sync$m$4$m$2$m$2$m$1$m$1", "symbols": [], "postprocess": ()             => [false, false]},
-    {"name": "passing_sync$m$4$m$2$m$2$m$1$m$1", "symbols": ["passing_sync$m$4$m$2$m$2$m$1$m$2"], "postprocess": ([[match]])    => [match, false]},
-    {"name": "passing_sync$m$4$m$2$m$2$m$1$m$1", "symbols": ["passing_sync$m$4$m$2$m$2$m$1$m$3"], "postprocess": ([[match]])    => [false, match]},
-    {"name": "passing_sync$m$4$m$2$m$2$m$1$m$1", "symbols": ["passing_sync$m$4$m$2$m$2$m$1$m$2", "passing_sync$m$4$m$2$m$2$m$1$m$3"], "postprocess": ([[m1], [m2]]) => [m1, m2]},
-    {"name": "passing_sync$m$4$m$2$m$2$m$1$m$1", "symbols": ["passing_sync$m$4$m$2$m$2$m$1$m$3", "passing_sync$m$4$m$2$m$2$m$1$m$2"], "postprocess": ([[m1], [m2]]) => [m2, m1]},
-    {"name": "passing_sync$m$4$m$2$m$2$m$1", "symbols": ["integer_even", "passing_sync$m$4$m$2$m$2$m$1$m$1"], "postprocess": ([value, [pass, cross]]) => ({ value, pass: pass ? pass[0] : false, cross })},
-    {"name": "passing_sync$m$4$m$2$m$2", "symbols": ["passing_sync$m$4$m$2$m$2$m$1"]},
-    {"name": "passing_sync$m$4$m$2$m$3", "symbols": [{"literal":" "}]},
-    {"name": "passing_sync$m$4$m$2$m$1", "symbols": ["passing_sync$m$4$m$2$m$2"], "postprocess": id},
-    {"name": "passing_sync$m$4$m$2$m$1$e$1$s$1", "symbols": ["_", "passing_sync$m$4$m$2$m$3", "_", "passing_sync$m$4$m$2$m$2"]},
-    {"name": "passing_sync$m$4$m$2$m$1$e$1", "symbols": ["passing_sync$m$4$m$2$m$1$e$1$s$1"]},
-    {"name": "passing_sync$m$4$m$2$m$1$e$1$s$2", "symbols": ["_", "passing_sync$m$4$m$2$m$3", "_", "passing_sync$m$4$m$2$m$2"]},
-    {"name": "passing_sync$m$4$m$2$m$1$e$1", "symbols": ["passing_sync$m$4$m$2$m$1$e$1", "passing_sync$m$4$m$2$m$1$e$1$s$2"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
-    {"name": "passing_sync$m$4$m$2$m$1", "symbols": [{"literal":"["}, "_", "passing_sync$m$4$m$2$m$2", "passing_sync$m$4$m$2$m$1$e$1", "_", {"literal":"]"}], "postprocess": ([, , [first], rest]) => [first, ...rest.map(([,,,[toss]]) => toss)]},
-    {"name": "passing_sync$m$4$m$2", "symbols": ["passing_sync$m$4$m$2$m$1"]},
-    {"name": "passing_sync$m$4$m$3", "symbols": [{"literal":" "}]},
-    {"name": "passing_sync$m$4$m$1$m$2$s$1$m$2$m$2", "symbols": ["passing_sync$m$4$m$2"]},
-    {"name": "passing_sync$m$4$m$1$m$2$s$1$m$2$m$3", "symbols": ["passing_sync$m$4$m$3"]},
-    {"name": "passing_sync$m$4$m$1$m$2$s$1$m$2$m$1", "symbols": [{"literal":"("}, "_", "passing_sync$m$4$m$1$m$2$s$1$m$2$m$2", "_", "passing_sync$m$4$m$1$m$2$s$1$m$2$m$3", "_", "passing_sync$m$4$m$1$m$2$s$1$m$2$m$2", "_", {"literal":")"}], "postprocess": ([, , [[release1]], , , , [[release2]]]) => [release1, release2]},
-    {"name": "passing_sync$m$4$m$1$m$2$s$1$m$2", "symbols": ["passing_sync$m$4$m$1$m$2$s$1$m$2$m$1"]},
-    {"name": "passing_sync$m$4$m$1$m$2$s$1$m$3", "symbols": ["_"]},
-    {"name": "passing_sync$m$4$m$1$m$2$s$1$m$1$e$1", "symbols": []},
-    {"name": "passing_sync$m$4$m$1$m$2$s$1$m$1$e$1$s$1", "symbols": ["passing_sync$m$4$m$1$m$2$s$1$m$3", "passing_sync$m$4$m$1$m$2$s$1$m$2"]},
-    {"name": "passing_sync$m$4$m$1$m$2$s$1$m$1$e$1", "symbols": ["passing_sync$m$4$m$1$m$2$s$1$m$1$e$1", "passing_sync$m$4$m$1$m$2$s$1$m$1$e$1$s$1"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
-    {"name": "passing_sync$m$4$m$1$m$2$s$1$m$1", "symbols": ["passing_sync$m$4$m$1$m$2$s$1$m$2", "passing_sync$m$4$m$1$m$2$s$1$m$1$e$1"], "postprocess": ([[first], rest]) => [first, ...rest.map(([,[toss]]) => toss)]},
-    {"name": "passing_sync$m$4$m$1$m$2$s$1$e$1", "symbols": [{"literal":"*"}], "postprocess": id},
-    {"name": "passing_sync$m$4$m$1$m$2$s$1$e$1", "symbols": [], "postprocess": function(d) {return null;}},
-    {"name": "passing_sync$m$4$m$1$m$2$s$1", "symbols": ["passing_sync$m$4$m$1$m$2$s$1$m$1", "_", "passing_sync$m$4$m$1$m$2$s$1$e$1"]},
-    {"name": "passing_sync$m$4$m$1$m$2", "symbols": ["passing_sync$m$4$m$1$m$2$s$1"]},
-    {"name": "passing_sync$m$4$m$1$m$1", "symbols": ["_", "passing_sync$m$4$m$1$m$2", "_"], "postprocess": ([, [match]]) => match},
-    {"name": "passing_sync$m$4$m$1", "symbols": ["passing_sync$m$4$m$1$m$1"], "postprocess": ([[actions, , mirrored]]) => mirrored ? mirror(actions) : actions},
-    {"name": "passing_sync$m$4", "symbols": ["passing_sync$m$4$m$1"]},
-    {"name": "passing_sync$m$3$m$2$s$1$e$1$s$1", "symbols": [{"literal":"|"}, "passing_sync$m$4"]},
-    {"name": "passing_sync$m$3$m$2$s$1$e$1", "symbols": ["passing_sync$m$3$m$2$s$1$e$1$s$1"]},
-    {"name": "passing_sync$m$3$m$2$s$1$e$1$s$2", "symbols": [{"literal":"|"}, "passing_sync$m$4"]},
-    {"name": "passing_sync$m$3$m$2$s$1$e$1", "symbols": ["passing_sync$m$3$m$2$s$1$e$1", "passing_sync$m$3$m$2$s$1$e$1$s$2"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
-    {"name": "passing_sync$m$3$m$2$s$1", "symbols": [{"literal":"<"}, "passing_sync$m$4", "passing_sync$m$3$m$2$s$1$e$1", {"literal":">"}]},
-    {"name": "passing_sync$m$3$m$2", "symbols": ["passing_sync$m$3$m$2$s$1"]},
-    {"name": "passing_sync$m$3$m$1", "symbols": ["_", "passing_sync$m$3$m$2", "_"], "postprocess": ([, [match]]) => match},
-    {"name": "passing_sync$m$3", "symbols": ["passing_sync$m$3$m$1"], "postprocess": ([[, [first], rest]]) => [first, ...rest.map(([,[match]]) => match)]},
-    {"name": "passing_sync", "symbols": ["passing_sync$m$3"], "postprocess": ([siteswaps]) => finalisePassingSync(siteswaps)},
-    {"name": "passing_sync$m$6$m$2$m$2$m$2", "symbols": ["crosspass"]},
-    {"name": "passing_sync$m$6$m$2$m$2$m$1$m$2", "symbols": ["passing_sync$m$6$m$2$m$2$m$2"]},
-    {"name": "passing_sync$m$6$m$2$m$2$m$1$m$3", "symbols": ["cross"]},
-    {"name": "passing_sync$m$6$m$2$m$2$m$1$m$1", "symbols": [], "postprocess": ()             => [false, false]},
-    {"name": "passing_sync$m$6$m$2$m$2$m$1$m$1", "symbols": ["passing_sync$m$6$m$2$m$2$m$1$m$2"], "postprocess": ([[match]])    => [match, false]},
-    {"name": "passing_sync$m$6$m$2$m$2$m$1$m$1", "symbols": ["passing_sync$m$6$m$2$m$2$m$1$m$3"], "postprocess": ([[match]])    => [false, match]},
-    {"name": "passing_sync$m$6$m$2$m$2$m$1$m$1", "symbols": ["passing_sync$m$6$m$2$m$2$m$1$m$2", "passing_sync$m$6$m$2$m$2$m$1$m$3"], "postprocess": ([[m1], [m2]]) => [m1, m2]},
-    {"name": "passing_sync$m$6$m$2$m$2$m$1$m$1", "symbols": ["passing_sync$m$6$m$2$m$2$m$1$m$3", "passing_sync$m$6$m$2$m$2$m$1$m$2"], "postprocess": ([[m1], [m2]]) => [m2, m1]},
-    {"name": "passing_sync$m$6$m$2$m$2$m$1", "symbols": ["integer_even", "passing_sync$m$6$m$2$m$2$m$1$m$1"], "postprocess": ([value, [pass, cross]]) => ({ value, pass: pass ? pass[0] : false, cross })},
-    {"name": "passing_sync$m$6$m$2$m$2", "symbols": ["passing_sync$m$6$m$2$m$2$m$1"]},
-    {"name": "passing_sync$m$6$m$2$m$3", "symbols": [{"literal":","}]},
-    {"name": "passing_sync$m$6$m$2$m$1", "symbols": ["passing_sync$m$6$m$2$m$2"], "postprocess": id},
-    {"name": "passing_sync$m$6$m$2$m$1$e$1$s$1", "symbols": ["_", "passing_sync$m$6$m$2$m$3", "_", "passing_sync$m$6$m$2$m$2"]},
-    {"name": "passing_sync$m$6$m$2$m$1$e$1", "symbols": ["passing_sync$m$6$m$2$m$1$e$1$s$1"]},
-    {"name": "passing_sync$m$6$m$2$m$1$e$1$s$2", "symbols": ["_", "passing_sync$m$6$m$2$m$3", "_", "passing_sync$m$6$m$2$m$2"]},
-    {"name": "passing_sync$m$6$m$2$m$1$e$1", "symbols": ["passing_sync$m$6$m$2$m$1$e$1", "passing_sync$m$6$m$2$m$1$e$1$s$2"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
-    {"name": "passing_sync$m$6$m$2$m$1", "symbols": [{"literal":"["}, "_", "passing_sync$m$6$m$2$m$2", "passing_sync$m$6$m$2$m$1$e$1", "_", {"literal":"]"}], "postprocess": ([, , [first], rest]) => [first, ...rest.map(([,,,[toss]]) => toss)]},
-    {"name": "passing_sync$m$6$m$2", "symbols": ["passing_sync$m$6$m$2$m$1"]},
-    {"name": "passing_sync$m$6$m$3", "symbols": [{"literal":","}]},
-    {"name": "passing_sync$m$6$m$1$m$2$s$1$m$2$m$2", "symbols": ["passing_sync$m$6$m$2"]},
-    {"name": "passing_sync$m$6$m$1$m$2$s$1$m$2$m$3", "symbols": ["passing_sync$m$6$m$3"]},
-    {"name": "passing_sync$m$6$m$1$m$2$s$1$m$2$m$1", "symbols": [{"literal":"("}, "_", "passing_sync$m$6$m$1$m$2$s$1$m$2$m$2", "_", "passing_sync$m$6$m$1$m$2$s$1$m$2$m$3", "_", "passing_sync$m$6$m$1$m$2$s$1$m$2$m$2", "_", {"literal":")"}], "postprocess": ([, , [[release1]], , , , [[release2]]]) => [release1, release2]},
-    {"name": "passing_sync$m$6$m$1$m$2$s$1$m$2", "symbols": ["passing_sync$m$6$m$1$m$2$s$1$m$2$m$1"]},
-    {"name": "passing_sync$m$6$m$1$m$2$s$1$m$3", "symbols": ["_"]},
-    {"name": "passing_sync$m$6$m$1$m$2$s$1$m$1$e$1", "symbols": []},
-    {"name": "passing_sync$m$6$m$1$m$2$s$1$m$1$e$1$s$1", "symbols": ["passing_sync$m$6$m$1$m$2$s$1$m$3", "passing_sync$m$6$m$1$m$2$s$1$m$2"]},
-    {"name": "passing_sync$m$6$m$1$m$2$s$1$m$1$e$1", "symbols": ["passing_sync$m$6$m$1$m$2$s$1$m$1$e$1", "passing_sync$m$6$m$1$m$2$s$1$m$1$e$1$s$1"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
-    {"name": "passing_sync$m$6$m$1$m$2$s$1$m$1", "symbols": ["passing_sync$m$6$m$1$m$2$s$1$m$2", "passing_sync$m$6$m$1$m$2$s$1$m$1$e$1"], "postprocess": ([[first], rest]) => [first, ...rest.map(([,[toss]]) => toss)]},
-    {"name": "passing_sync$m$6$m$1$m$2$s$1$e$1", "symbols": [{"literal":"*"}], "postprocess": id},
-    {"name": "passing_sync$m$6$m$1$m$2$s$1$e$1", "symbols": [], "postprocess": function(d) {return null;}},
-    {"name": "passing_sync$m$6$m$1$m$2$s$1", "symbols": ["passing_sync$m$6$m$1$m$2$s$1$m$1", "_", "passing_sync$m$6$m$1$m$2$s$1$e$1"]},
-    {"name": "passing_sync$m$6$m$1$m$2", "symbols": ["passing_sync$m$6$m$1$m$2$s$1"]},
-    {"name": "passing_sync$m$6$m$1$m$1", "symbols": ["_", "passing_sync$m$6$m$1$m$2", "_"], "postprocess": ([, [match]]) => match},
-    {"name": "passing_sync$m$6$m$1", "symbols": ["passing_sync$m$6$m$1$m$1"], "postprocess": ([[actions, , mirrored]]) => mirrored ? mirror(actions) : actions},
-    {"name": "passing_sync$m$6", "symbols": ["passing_sync$m$6$m$1"]},
-    {"name": "passing_sync$m$5$m$2$s$1", "symbols": [{"literal":"<"}, "passing_sync$m$6", {"literal":"|"}, "passing_sync$m$6", {"literal":">"}]},
-    {"name": "passing_sync$m$5$m$2", "symbols": ["passing_sync$m$5$m$2$s$1"]},
-    {"name": "passing_sync$m$5$m$1", "symbols": ["_", "passing_sync$m$5$m$2", "_"], "postprocess": ([, [match]]) => match},
-    {"name": "passing_sync$m$5", "symbols": ["passing_sync$m$5$m$1"], "postprocess": ([[, [first], , [second]]]) => [first, second]},
-    {"name": "passing_sync", "symbols": ["passing_sync$m$5"], "postprocess": ([siteswaps]) => finalisePassingSync(siteswaps)},
-    {"name": "passing_sync$m$8$m$2$m$2$m$2", "symbols": ["crosspass"]},
-    {"name": "passing_sync$m$8$m$2$m$2$m$1$m$2", "symbols": ["passing_sync$m$8$m$2$m$2$m$2"]},
-    {"name": "passing_sync$m$8$m$2$m$2$m$1$m$3", "symbols": ["cross"]},
-    {"name": "passing_sync$m$8$m$2$m$2$m$1$m$1", "symbols": [], "postprocess": ()             => [false, false]},
-    {"name": "passing_sync$m$8$m$2$m$2$m$1$m$1", "symbols": ["passing_sync$m$8$m$2$m$2$m$1$m$2"], "postprocess": ([[match]])    => [match, false]},
-    {"name": "passing_sync$m$8$m$2$m$2$m$1$m$1", "symbols": ["passing_sync$m$8$m$2$m$2$m$1$m$3"], "postprocess": ([[match]])    => [false, match]},
-    {"name": "passing_sync$m$8$m$2$m$2$m$1$m$1", "symbols": ["passing_sync$m$8$m$2$m$2$m$1$m$2", "passing_sync$m$8$m$2$m$2$m$1$m$3"], "postprocess": ([[m1], [m2]]) => [m1, m2]},
-    {"name": "passing_sync$m$8$m$2$m$2$m$1$m$1", "symbols": ["passing_sync$m$8$m$2$m$2$m$1$m$3", "passing_sync$m$8$m$2$m$2$m$1$m$2"], "postprocess": ([[m1], [m2]]) => [m2, m1]},
-    {"name": "passing_sync$m$8$m$2$m$2$m$1", "symbols": ["integer_even", "passing_sync$m$8$m$2$m$2$m$1$m$1"], "postprocess": ([value, [pass, cross]]) => ({ value, pass: pass ? pass[0] : false, cross })},
-    {"name": "passing_sync$m$8$m$2$m$2", "symbols": ["passing_sync$m$8$m$2$m$2$m$1"]},
-    {"name": "passing_sync$m$8$m$2$m$3", "symbols": [{"literal":" "}]},
-    {"name": "passing_sync$m$8$m$2$m$1", "symbols": ["passing_sync$m$8$m$2$m$2"], "postprocess": id},
-    {"name": "passing_sync$m$8$m$2$m$1$e$1$s$1", "symbols": ["_", "passing_sync$m$8$m$2$m$3", "_", "passing_sync$m$8$m$2$m$2"]},
-    {"name": "passing_sync$m$8$m$2$m$1$e$1", "symbols": ["passing_sync$m$8$m$2$m$1$e$1$s$1"]},
-    {"name": "passing_sync$m$8$m$2$m$1$e$1$s$2", "symbols": ["_", "passing_sync$m$8$m$2$m$3", "_", "passing_sync$m$8$m$2$m$2"]},
-    {"name": "passing_sync$m$8$m$2$m$1$e$1", "symbols": ["passing_sync$m$8$m$2$m$1$e$1", "passing_sync$m$8$m$2$m$1$e$1$s$2"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
-    {"name": "passing_sync$m$8$m$2$m$1", "symbols": [{"literal":"["}, "_", "passing_sync$m$8$m$2$m$2", "passing_sync$m$8$m$2$m$1$e$1", "_", {"literal":"]"}], "postprocess": ([, , [first], rest]) => [first, ...rest.map(([,,,[toss]]) => toss)]},
-    {"name": "passing_sync$m$8$m$2", "symbols": ["passing_sync$m$8$m$2$m$1"]},
-    {"name": "passing_sync$m$8$m$3", "symbols": [{"literal":" "}]},
-    {"name": "passing_sync$m$8$m$1$m$2$s$1$m$2$m$2", "symbols": ["passing_sync$m$8$m$2"]},
-    {"name": "passing_sync$m$8$m$1$m$2$s$1$m$2$m$3", "symbols": ["passing_sync$m$8$m$3"]},
-    {"name": "passing_sync$m$8$m$1$m$2$s$1$m$2$m$1", "symbols": [{"literal":"("}, "_", "passing_sync$m$8$m$1$m$2$s$1$m$2$m$2", "_", "passing_sync$m$8$m$1$m$2$s$1$m$2$m$3", "_", "passing_sync$m$8$m$1$m$2$s$1$m$2$m$2", "_", {"literal":")"}], "postprocess": ([, , [[release1]], , , , [[release2]]]) => [release1, release2]},
-    {"name": "passing_sync$m$8$m$1$m$2$s$1$m$2", "symbols": ["passing_sync$m$8$m$1$m$2$s$1$m$2$m$1"]},
-    {"name": "passing_sync$m$8$m$1$m$2$s$1$m$3", "symbols": ["_"]},
-    {"name": "passing_sync$m$8$m$1$m$2$s$1$m$1$e$1", "symbols": []},
-    {"name": "passing_sync$m$8$m$1$m$2$s$1$m$1$e$1$s$1", "symbols": ["passing_sync$m$8$m$1$m$2$s$1$m$3", "passing_sync$m$8$m$1$m$2$s$1$m$2"]},
-    {"name": "passing_sync$m$8$m$1$m$2$s$1$m$1$e$1", "symbols": ["passing_sync$m$8$m$1$m$2$s$1$m$1$e$1", "passing_sync$m$8$m$1$m$2$s$1$m$1$e$1$s$1"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
-    {"name": "passing_sync$m$8$m$1$m$2$s$1$m$1", "symbols": ["passing_sync$m$8$m$1$m$2$s$1$m$2", "passing_sync$m$8$m$1$m$2$s$1$m$1$e$1"], "postprocess": ([[first], rest]) => [first, ...rest.map(([,[toss]]) => toss)]},
-    {"name": "passing_sync$m$8$m$1$m$2$s$1$e$1", "symbols": [{"literal":"*"}], "postprocess": id},
-    {"name": "passing_sync$m$8$m$1$m$2$s$1$e$1", "symbols": [], "postprocess": function(d) {return null;}},
-    {"name": "passing_sync$m$8$m$1$m$2$s$1", "symbols": ["passing_sync$m$8$m$1$m$2$s$1$m$1", "_", "passing_sync$m$8$m$1$m$2$s$1$e$1"]},
-    {"name": "passing_sync$m$8$m$1$m$2", "symbols": ["passing_sync$m$8$m$1$m$2$s$1"]},
-    {"name": "passing_sync$m$8$m$1$m$1", "symbols": ["_", "passing_sync$m$8$m$1$m$2", "_"], "postprocess": ([, [match]]) => match},
-    {"name": "passing_sync$m$8$m$1", "symbols": ["passing_sync$m$8$m$1$m$1"], "postprocess": ([[actions, , mirrored]]) => mirrored ? mirror(actions) : actions},
-    {"name": "passing_sync$m$8", "symbols": ["passing_sync$m$8$m$1"]},
-    {"name": "passing_sync$m$7$m$2$s$1", "symbols": [{"literal":"<"}, "passing_sync$m$8", {"literal":"|"}, "passing_sync$m$8", {"literal":">"}]},
-    {"name": "passing_sync$m$7$m$2", "symbols": ["passing_sync$m$7$m$2$s$1"]},
-    {"name": "passing_sync$m$7$m$1", "symbols": ["_", "passing_sync$m$7$m$2", "_"], "postprocess": ([, [match]]) => match},
-    {"name": "passing_sync$m$7", "symbols": ["passing_sync$m$7$m$1"], "postprocess": ([[, [first], , [second]]]) => [first, second]},
-    {"name": "passing_sync", "symbols": ["passing_sync$m$7"], "postprocess": ([siteswaps]) => finalisePassingSync(siteswaps)},
-    {"name": "multihand$m$2$m$2$m$2$m$2", "symbols": ["multihand_toss_alpha"]},
-    {"name": "multihand$m$2$m$2$m$2$m$3", "symbols": [{"literal":","}]},
-    {"name": "multihand$m$2$m$2$m$2$m$1", "symbols": ["multihand$m$2$m$2$m$2$m$2"], "postprocess": id},
-    {"name": "multihand$m$2$m$2$m$2$m$1$e$1$s$1", "symbols": ["_", "multihand$m$2$m$2$m$2$m$3", "_", "multihand$m$2$m$2$m$2$m$2"]},
-    {"name": "multihand$m$2$m$2$m$2$m$1$e$1", "symbols": ["multihand$m$2$m$2$m$2$m$1$e$1$s$1"]},
-    {"name": "multihand$m$2$m$2$m$2$m$1$e$1$s$2", "symbols": ["_", "multihand$m$2$m$2$m$2$m$3", "_", "multihand$m$2$m$2$m$2$m$2"]},
-    {"name": "multihand$m$2$m$2$m$2$m$1$e$1", "symbols": ["multihand$m$2$m$2$m$2$m$1$e$1", "multihand$m$2$m$2$m$2$m$1$e$1$s$2"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
-    {"name": "multihand$m$2$m$2$m$2$m$1", "symbols": [{"literal":"["}, "_", "multihand$m$2$m$2$m$2$m$2", "multihand$m$2$m$2$m$2$m$1$e$1", "_", {"literal":"]"}], "postprocess": ([, , [first], rest]) => [first, ...rest.map(([,,,[toss]]) => toss)]},
-    {"name": "multihand$m$2$m$2$m$2", "symbols": ["multihand$m$2$m$2$m$2$m$1"]},
-    {"name": "multihand$m$2$m$2$m$3", "symbols": [{"literal":","}]},
-    {"name": "multihand$m$2$m$2$m$1$e$1", "symbols": []},
-    {"name": "multihand$m$2$m$2$m$1$e$1$s$1", "symbols": ["_", "multihand$m$2$m$2$m$3", "_", "multihand$m$2$m$2$m$2"]},
-    {"name": "multihand$m$2$m$2$m$1$e$1", "symbols": ["multihand$m$2$m$2$m$1$e$1", "multihand$m$2$m$2$m$1$e$1$s$1"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
-    {"name": "multihand$m$2$m$2$m$1", "symbols": ["multihand$m$2$m$2$m$2", "multihand$m$2$m$2$m$1$e$1"], "postprocess": ([[first], rest]) => [first, ...rest.map(([,,,[toss]]) => toss)]},
-    {"name": "multihand$m$2$m$2", "symbols": ["multihand$m$2$m$2$m$1"]},
-    {"name": "multihand$m$2$m$3", "symbols": [{"literal":"\n"}]},
-    {"name": "multihand$m$2$m$1$e$1", "symbols": []},
-    {"name": "multihand$m$2$m$1$e$1$s$1", "symbols": ["_", "multihand$m$2$m$3", "_", "multihand$m$2$m$2"]},
-    {"name": "multihand$m$2$m$1$e$1", "symbols": ["multihand$m$2$m$1$e$1", "multihand$m$2$m$1$e$1$s$1"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
-    {"name": "multihand$m$2$m$1", "symbols": ["multihand$m$2$m$2", "multihand$m$2$m$1$e$1"], "postprocess": ([[first], rest]) => [first, ...rest.map(([,,,[toss]]) => toss)]},
-    {"name": "multihand$m$2", "symbols": ["multihand$m$2$m$1"]},
-    {"name": "multihand$m$1", "symbols": ["_", "multihand$m$2", "_"], "postprocess": ([, [match]]) => match},
-    {"name": "multihand", "symbols": ["multihand$m$1"], "postprocess": ([throws]) => finaliseMultihand(throws)},
-    {"name": "multihand$m$4$m$2$m$2$m$2", "symbols": ["multihand_toss_num"]},
-    {"name": "multihand$m$4$m$2$m$2$m$3", "symbols": []},
-    {"name": "multihand$m$4$m$2$m$2$m$1", "symbols": ["multihand$m$4$m$2$m$2$m$2"], "postprocess": id},
-    {"name": "multihand$m$4$m$2$m$2$m$1$e$1$s$1", "symbols": ["_", "multihand$m$4$m$2$m$2$m$3", "_", "multihand$m$4$m$2$m$2$m$2"]},
-    {"name": "multihand$m$4$m$2$m$2$m$1$e$1", "symbols": ["multihand$m$4$m$2$m$2$m$1$e$1$s$1"]},
-    {"name": "multihand$m$4$m$2$m$2$m$1$e$1$s$2", "symbols": ["_", "multihand$m$4$m$2$m$2$m$3", "_", "multihand$m$4$m$2$m$2$m$2"]},
-    {"name": "multihand$m$4$m$2$m$2$m$1$e$1", "symbols": ["multihand$m$4$m$2$m$2$m$1$e$1", "multihand$m$4$m$2$m$2$m$1$e$1$s$2"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
-    {"name": "multihand$m$4$m$2$m$2$m$1", "symbols": [{"literal":"["}, "_", "multihand$m$4$m$2$m$2$m$2", "multihand$m$4$m$2$m$2$m$1$e$1", "_", {"literal":"]"}], "postprocess": ([, , [first], rest]) => [first, ...rest.map(([,,,[toss]]) => toss)]},
-    {"name": "multihand$m$4$m$2$m$2", "symbols": ["multihand$m$4$m$2$m$2$m$1"]},
-    {"name": "multihand$m$4$m$2$m$3", "symbols": []},
-    {"name": "multihand$m$4$m$2$m$1$e$1", "symbols": []},
-    {"name": "multihand$m$4$m$2$m$1$e$1$s$1", "symbols": ["_", "multihand$m$4$m$2$m$3", "_", "multihand$m$4$m$2$m$2"]},
-    {"name": "multihand$m$4$m$2$m$1$e$1", "symbols": ["multihand$m$4$m$2$m$1$e$1", "multihand$m$4$m$2$m$1$e$1$s$1"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
-    {"name": "multihand$m$4$m$2$m$1", "symbols": ["multihand$m$4$m$2$m$2", "multihand$m$4$m$2$m$1$e$1"], "postprocess": ([[first], rest]) => [first, ...rest.map(([,,,[toss]]) => toss)]},
-    {"name": "multihand$m$4$m$2", "symbols": ["multihand$m$4$m$2$m$1"]},
-    {"name": "multihand$m$4$m$3", "symbols": [{"literal":"\n"}]},
-    {"name": "multihand$m$4$m$1$e$1", "symbols": []},
-    {"name": "multihand$m$4$m$1$e$1$s$1", "symbols": ["_", "multihand$m$4$m$3", "_", "multihand$m$4$m$2"]},
-    {"name": "multihand$m$4$m$1$e$1", "symbols": ["multihand$m$4$m$1$e$1", "multihand$m$4$m$1$e$1$s$1"], "postprocess": function arrpush(d) {return d[0].concat([d[1]]);}},
-    {"name": "multihand$m$4$m$1", "symbols": ["multihand$m$4$m$2", "multihand$m$4$m$1$e$1"], "postprocess": ([[first], rest]) => [first, ...rest.map(([,,,[toss]]) => toss)]},
-    {"name": "multihand$m$4", "symbols": ["multihand$m$4$m$1"]},
-    {"name": "multihand$m$3", "symbols": ["_", "multihand$m$4", "_"], "postprocess": ([, [match]]) => match},
-    {"name": "multihand", "symbols": ["multihand$m$3"], "postprocess": ([throws]) => finaliseMultihand(throws)},
-    {"name": "multihand_toss_alpha", "symbols": ["letter_capital", "integer"], "postprocess": ([hand, value]) => ({ value, hand })},
-    {"name": "multihand_toss_num$e$1", "symbols": [{"literal":"-"}], "postprocess": id},
-    {"name": "multihand_toss_num$e$1", "symbols": [], "postprocess": function(d) {return null;}},
-    {"name": "multihand_toss_num", "symbols": [{"literal":"("}, "_", "multihand_toss_num$e$1", "integer", "_", {"literal":","}, "_", "integer", "_", {"literal":")"}], "postprocess": ([, , minus, hand, , , , value]) => ({ value, offset: hand * (minus ? -1 : 1) })}
-]
-  , ParserStart: "digit"
-};
 
-function parse$1( rule, string ){
-   
-   try{
-      return new Parser(grammar.ParserRules, rule).feed(string).results;
+function parseRule( rule ){
+
+   let result;
+
+   // Used for optional rules.
+   if( rule === null ){
+      return null
    }
-   catch(e){
-      return [];
+
+   // Terminal symbol.
+   if( rule.tokenType ){
+      const token = tokens[tokenAt];
+      if( !token || token.type !== rule.tokenType )
+         return error
+
+      if( rule.fixed ){
+         if( !rule.value )
+            rule.value = token.value;
+         else if( token.value !== rule.value )
+            return error
+      }
+
+      result = token.value;
+      tokenAt++;
    }
+
+   // List of symbols.
+   else if( rule.symbol ){
+      result = parseRule(rule.symbol);
+      if( result === error )
+         return error
+   }
+
+   // List of symbols.
+   else if( rule.symbols ){
+      result = [];
+      for( const symbol of rule.symbols ){
+         const parsed = parseRule(symbol);
+         if( parsed === error )
+            return error
+         result.push(parsed);
+      }
+   }
+
+   // List of symbols to repeat.
+   else if( rule.repeat ){
+      result = [];
+      while( result.length < rule.max ){
+         const at = tokenAt;
+         const parsed = parseRule({ symbols: rule.repeat });
+         if( parsed === error ){
+            tokenAt = at;
+            break
+         }
+         result.push(parsed);
+      }
+
+      if( result.length < rule.min || result.length > rule.max ){
+         return error
+      }
+   }
+
+   // List of possible parsing branches; return the first that parses successfully.
+   else if( rule.either ){
+
+      for( const branch of rule.either ){
+         const at = tokenAt;
+         const parsed = parseRule(branch);
+         if( parsed === error ){
+            tokenAt = at;
+            continue
+         }
+
+         const processor = rule.processor;
+
+         if( rule.fixed ){
+            if( rule.value === undefined )
+               rule.value = branch;
+            else if( branch !== rule.value )
+               return error
+         }
+
+         return processor ? processor(parsed) : parsed
+      }
+
+      return error
+   }
+
+   return rule.processor ? rule.processor(result) : result
+
+}
+
+
+// Returns the throws array or null on fails.
+
+function parse$1( notation, string ){
+
+   // This one's not meant to be caught, or happen.
+   if( !notation || !rules[notation] )
+      throw new Error("Unknown notation.")
+
+
+   // Not initialised yet.
+   if( typeof rules[notation] === "function" ){
+      rules[notation] = serialise(rules[notation]());
+   }
+
+   const rule = rules[notation];
+
+   // Clear the state of previous run.
+   for( const symbol of rule.immutables )
+      delete symbol.value;
+
+
+   tokenAt = 0;
+
+   tokens = tokenise(rule.terminals, string);
+
+   if( !tokens.length )
+      return null
+
+   const result = parseRule(rule);
+   if( result === error || tokenAt !== tokens.length )
+      return null
+
+   return result
 
 }
 
@@ -1523,8 +1089,8 @@ const declaration = {
       degree: { min: 1, max: 1 }
    },
    hands: () => ["Hand"],
-   parse: parse$1.bind(null, "standard_async"),
-   unparse: throws => throws.map( ([release]) => release.length === 1 ? release[0].value : `[${release.map(({ value }) => value).join(",")}]`).join(",")
+   parse: (string) => parse$1("standard_async", string),
+   unparse: (throws) => throws.map( ([release]) => release.length === 1 ? release[0].value : `[${release.map(({ value }) => value).join(",")}]`).join(",")
 
 };
 
@@ -1540,8 +1106,8 @@ const declaration$1 = {
       degree: { min: 2, max: 2 }
    },
    hands: () => ["Left", "Right"],
-   parse: parse$1.bind(null, "standard_sync"),
-   unparse: throws => throws.map( action => "(" + action.map( release => release.length === 1 ? unparseToss(release[0]) : `[${release.map(unparseToss).join(",")}]` ) + ")"  ).join("")
+   parse: (string) => parse$1("standard_sync", string),
+   unparse: (throws) => throws.map( action => "(" + action.map( release => release.length === 1 ? unparseToss(release[0]) : `[${release.map(unparseToss).join(",")}]` ) + ")"  ).join("")
 
 };
 
@@ -1552,8 +1118,8 @@ const declaration$2 = {
       greatestValue: { max: 61 }
    },
    hands: () => ["Hand"],
-   parse: parse$1.bind(null, "compressed_async"),
-   unparse: throws => throws.map( ([release]) => release.length === 1 ? release[0].value : `[${release.map(({ value }) => value).join("")}]`).join("")
+   parse: (string) => parse$1("compressed_async", string),
+   unparse: (throws) => throws.map( ([release]) => release.length === 1 ? release[0].value : `[${release.map(({ value }) => value).join("")}]`).join("")
 
 };
 
@@ -1570,8 +1136,8 @@ const declaration$3 = {
       greatestValue: { max: 61 }
    },
    hands: () => ["Left", "Right"],
-   parse: parse$1.bind(null, "compressed_sync"),
-   unparse: throws => throws.map( action => "(" + action.map( release => release.length === 1 ? unparseToss$1(release[0]) : `[${release.map(unparseToss$1).join("")}]` ) + ")"  ).join("")
+   parse: (string) => parse$1("compressed_sync", string),
+   unparse: (throws) => throws.map( action => "(" + action.map( release => release.length === 1 ? unparseToss$1(release[0]) : `[${release.map(unparseToss$1).join("")}]` ) + ")"  ).join("")
 
 };
 
@@ -1581,7 +1147,7 @@ const declaration$4 = {
       degree: { min: 2 }
    },
    hands: degree => Array(degree).fill().map((_, i) => `juggler ${i + 1}`),
-   parse: parse$1.bind(null, "passing_async"),
+   parse: (string) => parse$1("passing_async", string),
    unparse
 
 };
@@ -1609,7 +1175,7 @@ const declaration$5 = {
       degree: { min: 4, step: 2 }
    },
    hands: degree => Array(degree).fill().map((_, i) => `juggler ${Math.floor(i / 2) + 1}, hand ${i % 2 + 1}`),
-   parse: parse$1.bind(null, "passing_sync"),
+   parse: (string) => parse$1("passing_sync", string),
    unparse: unparse$1
 
 };
@@ -1637,7 +1203,7 @@ function unparseRelease$1( release ){
 const declaration$6 = {
 
    hands: (n) => Array(n).fill().map((_, i) => alphabetic(i)),
-   parse: parse$1.bind(null, "multihand"),
+   parse: (string) => parse$1("multihand", string),
    unparse: unparse$2
 
 };
@@ -1698,7 +1264,7 @@ function parse( string, notations$$1 ){
    // When passed a string, try parsing with wanted notations, returning the first 
    // successful result.
    for( const notation of notations$$1 ){
-      const [throws] = notations[notation].parse(string);
+      const throws = notations[notation].parse(string);
       if( throws )
          return { notation, throws };
    }

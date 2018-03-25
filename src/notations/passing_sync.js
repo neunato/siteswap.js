@@ -8,7 +8,7 @@ const declaration = {
       degree: { min: 4, step: 2 }
    },
    hands: degree => Array(degree).fill().map((_, i) => `juggler ${Math.floor(i / 2) + 1}, hand ${i % 2 + 1}`),
-   parse: parse.bind(null, "passing_sync"),
+   parse: (string) => parse("passing_sync", string),
    unparse
 
 };
