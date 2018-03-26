@@ -1326,7 +1326,7 @@ function rotate( count = 1 ){
    if( count < 0 )
       count = throws.length + count % throws.length;
 
-   return new Siteswap( [ ...throws.map((_, i) => throws[(i + count) % throws.length]) ], this.notation );
+   return new Siteswap( throws.map((_, i) => throws[(i + count) % throws.length]), this.notation );
 
 }
 
