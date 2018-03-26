@@ -715,15 +715,6 @@ for( let i = 0; i < terminals.length; i++ ){
    rules[terminal.tokenType] = terminal;
 }
 
-
-
-
-
-
-
-
-
-
 function second([ ,a ]){
    return a
 }
@@ -953,7 +944,6 @@ function tokenise( terminals, string ){
 
 }
 
-
 function parseRule( rule ){
 
    let result;
@@ -1049,7 +1039,7 @@ function parseRule( rule ){
 
 // Returns the throws array or null on fails.
 
-function parse$1( notation, string ){
+function parse( notation, string ){
 
    // This one's not meant to be caught, or happen.
    if( !notation || !rules[notation] )
@@ -1089,7 +1079,7 @@ const declaration = {
       degree: { min: 1, max: 1 }
    },
    hands: () => ["Hand"],
-   parse: (string) => parse$1("standard_async", string),
+   parse: (string) => parse("standard_async", string),
    unparse: (throws) => throws.map( ([release]) => release.length === 1 ? release[0].value : `[${release.map(({ value }) => value).join(",")}]`).join(",")
 
 };
@@ -1106,7 +1096,7 @@ const declaration$1 = {
       degree: { min: 2, max: 2 }
    },
    hands: () => ["Left", "Right"],
-   parse: (string) => parse$1("standard_sync", string),
+   parse: (string) => parse("standard_sync", string),
    unparse: (throws) => throws.map( action => "(" + action.map( release => release.length === 1 ? unparseToss(release[0]) : `[${release.map(unparseToss).join(",")}]` ) + ")"  ).join("")
 
 };
@@ -1118,7 +1108,7 @@ const declaration$2 = {
       greatestValue: { max: 61 }
    },
    hands: () => ["Hand"],
-   parse: (string) => parse$1("compressed_async", string),
+   parse: (string) => parse("compressed_async", string),
    unparse: (throws) => throws.map( ([release]) => release.length === 1 ? release[0].value : `[${release.map(({ value }) => value).join("")}]`).join("")
 
 };
@@ -1136,7 +1126,7 @@ const declaration$3 = {
       greatestValue: { max: 61 }
    },
    hands: () => ["Left", "Right"],
-   parse: (string) => parse$1("compressed_sync", string),
+   parse: (string) => parse("compressed_sync", string),
    unparse: (throws) => throws.map( action => "(" + action.map( release => release.length === 1 ? unparseToss$1(release[0]) : `[${release.map(unparseToss$1).join("")}]` ) + ")"  ).join("")
 
 };
@@ -1147,10 +1137,12 @@ const declaration$4 = {
       degree: { min: 2 }
    },
    hands: degree => Array(degree).fill().map((_, i) => `juggler ${i + 1}`),
-   parse: (string) => parse$1("passing_async", string),
+   parse: (string) => parse("passing_async", string),
    unparse
 
 };
+
+
 
 function unparse( throws ){
    
@@ -1175,10 +1167,12 @@ const declaration$5 = {
       degree: { min: 4, step: 2 }
    },
    hands: degree => Array(degree).fill().map((_, i) => `juggler ${Math.floor(i / 2) + 1}, hand ${i % 2 + 1}`),
-   parse: (string) => parse$1("passing_sync", string),
+   parse: (string) => parse("passing_sync", string),
    unparse: unparse$1
 
 };
+
+
 
 function unparse$1( throws ){
 
@@ -1203,10 +1197,12 @@ function unparseRelease$1( release ){
 const declaration$6 = {
 
    hands: (n) => Array(n).fill().map((_, i) => alphabetic(i)),
-   parse: (string) => parse$1("multihand", string),
+   parse: (string) => parse("multihand", string),
    unparse: unparse$2
 
 };
+
+
 
 function unparse$2( throws ){
 
@@ -1242,7 +1238,7 @@ const notations = {
 
 };
 
-function parse( string, notations$$1 ){
+function parse$1( string, notations$$1 ){
 
    // Flatten composite notations ("standard" to "standard:async" and "standard:sync").
    notations$$1 = notations$$1.reduce( (r, n) => r.concat(Array.isArray(notations[n]) ? notations[n] : n), [] );
@@ -1482,7 +1478,7 @@ class Siteswap {
    constructor( string, notations = "compressed" ){
 
       try{
-         const { throws, notation } = parse(string, [].concat(notations));
+         const { throws, notation } = parse$1(string, [].concat(notations));
 
          validate(throws);
 

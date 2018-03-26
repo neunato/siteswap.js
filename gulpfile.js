@@ -9,7 +9,7 @@ const package = require("./package.json");
 
 const t = {
 
-   rollup:  (contents, file) => rollup.rollup({ entry: file.path, plugins: [resolve()] })
+   rollup:  (contents, file) => rollup.rollup({ input: file.path, plugins: [resolve()] })
                                  .then( bundle => bundle.generate({ format: "cjs" }) )
                                  .then( ({ code }) => code )
                                  .catch( handleRollupError ),
