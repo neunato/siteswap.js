@@ -936,7 +936,7 @@ function tokenise( terminals, string ){
    while( regex.lastIndex < string.length ){
       const matches = regex.exec(string);
       if( matches === null )
-         throw new Error("nece ici care")
+         return null
       const index = matches.findIndex((type, i) => i && type);
       tokens.push({ type: terminals[index - 1].tokenType, value: matches[index] });
    }
@@ -1043,7 +1043,7 @@ function parse( notation, string ){
 
    // This one's not meant to be caught, or happen.
    if( !notation || !rules[notation] )
-      throw new Error("Unknown notation.")
+      throw new Error("Impossible.")
 
 
    // Not initialised yet.
@@ -1062,7 +1062,7 @@ function parse( notation, string ){
 
    tokens = tokenise(rule.terminals, string);
 
-   if( !tokens.length )
+   if( !tokens || !tokens.length )
       return null
 
    const result = parseRule(rule);
