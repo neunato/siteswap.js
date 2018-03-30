@@ -1,81 +1,8 @@
 "use strict"
 
-import assert                        from "assert"
-import Siteswap                      from "../dist/siteswap"
-
-
-// A list of predefined siteswaps, determined by their throw sequences (so as not to depend on any notation).
-// Other properties are derived from throws anyway.
-
-const siteswaps = {}
-
-function register( name, throws ){
-   
-   if( siteswaps[name] )
-      throw new Error(`Siteswap "${name}" already registered.`)
-   
-   const siteswap = new Siteswap(throws, null)
-   siteswap.input = throws
-   siteswaps[name] = siteswap
-
-}
-
-function get( name ){
-   
-   if( siteswaps[name] === undefined )
-      throw new Error(`Siteswap ${name} not registered.`)
-   return siteswaps[name]
-
-}
-
-
-register("0",             [[[{"value":0,"handFrom":0,"handTo":0}]]])
-register("3",             [[[{"value":3,"handFrom":0,"handTo":0}]]])
-register("b",             [[[{"value":11,"handFrom":0,"handTo":0}]]])
-register("51",            [[[{"value":5,"handFrom":0,"handTo":0}]],[[{"value":1,"handFrom":0,"handTo":0}]]])
-register("51414",         [[[{"value":5,"handFrom":0,"handTo":0}]],[[{"value":1,"handFrom":0,"handTo":0}]],[[{"value":4,"handFrom":0,"handTo":0}]],[[{"value":1,"handFrom":0,"handTo":0}]],[[{"value":4,"handFrom":0,"handTo":0}]]])
-register("45141",         [[[{"value":4,"handFrom":0,"handTo":0}]],[[{"value":5,"handFrom":0,"handTo":0}]],[[{"value":1,"handFrom":0,"handTo":0}]],[[{"value":4,"handFrom":0,"handTo":0}]],[[{"value":1,"handFrom":0,"handTo":0}]]])
-register("441",           [[[{"value":4,"handFrom":0,"handTo":0}]],[[{"value":4,"handFrom":0,"handTo":0}]],[[{"value":1,"handFrom":0,"handTo":0}]]])
-register("414",           [[[{"value":4,"handFrom":0,"handTo":0}]],[[{"value":1,"handFrom":0,"handTo":0}]],[[{"value":4,"handFrom":0,"handTo":0}]]])
-register("3451413",       [[[{"value":3,"handFrom":0,"handTo":0}]],[[{"value":4,"handFrom":0,"handTo":0}]],[[{"value":5,"handFrom":0,"handTo":0}]],[[{"value":1,"handFrom":0,"handTo":0}]],[[{"value":4,"handFrom":0,"handTo":0}]],[[{"value":1,"handFrom":0,"handTo":0}]],[[{"value":3,"handFrom":0,"handTo":0}]]])
-register("531",           [[[{"value":5,"handFrom":0,"handTo":0}]],[[{"value":3,"handFrom":0,"handTo":0}]],[[{"value":1,"handFrom":0,"handTo":0}]]])
-register("315",           [[[{"value":3,"handFrom":0,"handTo":0}]],[[{"value":1,"handFrom":0,"handTo":0}]],[[{"value":5,"handFrom":0,"handTo":0}]]])
-register("153",           [[[{"value":1,"handFrom":0,"handTo":0}]],[[{"value":5,"handFrom":0,"handTo":0}]],[[{"value":3,"handFrom":0,"handTo":0}]]])
-register("5313",          [[[{"value":5,"handFrom":0,"handTo":0}]],[[{"value":3,"handFrom":0,"handTo":0}]],[[{"value":1,"handFrom":0,"handTo":0}]],[[{"value":3,"handFrom":0,"handTo":0}]]])
-register("5300",          [[[{"value":5,"handFrom":0,"handTo":0}]],[[{"value":3,"handFrom":0,"handTo":0}]],[[{"value":0,"handFrom":0,"handTo":0}]],[[{"value":0,"handFrom":0,"handTo":0}]]])
-register("0013",          [[[{"value":0,"handFrom":0,"handTo":0}]],[[{"value":0,"handFrom":0,"handTo":0}]],[[{"value":1,"handFrom":0,"handTo":0}]],[[{"value":3,"handFrom":0,"handTo":0}]]])
-register("531531",        [[[{"value":5,"handFrom":0,"handTo":0}]],[[{"value":3,"handFrom":0,"handTo":0}]],[[{"value":1,"handFrom":0,"handTo":0}]]])
-register("501",           [[[{"value":5,"handFrom":0,"handTo":0}]],[[{"value":0,"handFrom":0,"handTo":0}]],[[{"value":1,"handFrom":0,"handTo":0}]]])
-register("300",           [[[{"value":3,"handFrom":0,"handTo":0}]],[[{"value":0,"handFrom":0,"handTo":0}]],[[{"value":0,"handFrom":0,"handTo":0}]]])
-register("030",           [[[{"value":0,"handFrom":0,"handTo":0}]],[[{"value":3,"handFrom":0,"handTo":0}]],[[{"value":0,"handFrom":0,"handTo":0}]]])
-register("003",           [[[{"value":0,"handFrom":0,"handTo":0}]],[[{"value":0,"handFrom":0,"handTo":0}]],[[{"value":3,"handFrom":0,"handTo":0}]]])
-register("423",           [[[{"value":4,"handFrom":0,"handTo":0}]],[[{"value":2,"handFrom":0,"handTo":0}]],[[{"value":3,"handFrom":0,"handTo":0}]]])
-register("420",           [[[{"value":4,"handFrom":0,"handTo":0}]],[[{"value":2,"handFrom":0,"handTo":0}]],[[{"value":0,"handFrom":0,"handTo":0}]]])
-register("42",            [[[{"value":4,"handFrom":0,"handTo":0}]],[[{"value":2,"handFrom":0,"handTo":0}]]])
-register("(4,2x)*",       [[[{"value":2,"handFrom":0,"handTo":0}],[{"value":1,"handFrom":1,"handTo":0}]],
-                           [[{"value":1,"handFrom":0,"handTo":1}],[{"value":2,"handFrom":1,"handTo":1}]]])
-register("(4,2x)(2x,4)",  [[[{"value":2,"handFrom":0,"handTo":0}],[{"value":1,"handFrom":1,"handTo":0}]],
-                           [[{"value":1,"handFrom":0,"handTo":1}],[{"value":2,"handFrom":1,"handTo":1}]]])
-register("(2x,4)(4,2x)",  [[[{"value":1,"handFrom":0,"handTo":1}],[{"value":2,"handFrom":1,"handTo":1}]],
-                           [[{"value":2,"handFrom":0,"handTo":0}],[{"value":1,"handFrom":1,"handTo":0}]]])
-register("(4,0)(0,0)",    [[[{"value":2,"handFrom":0,"handTo":0}],[{"value":0,"handFrom":1,"handTo":1}]],
-                           [[{"value":0,"handFrom":0,"handTo":0}],[{"value":0,"handFrom":1,"handTo":1}]]])
-register("(0,2x)(2x,0)",  [[[{"value":0,"handFrom":0,"handTo":0}],[{"value":1,"handFrom":1,"handTo":0}]],
-                           [[{"value":1,"handFrom":0,"handTo":1}],[{"value":0,"handFrom":1,"handTo":1}]]])
-register("(0,0)(0,4)",    [[[{"value":0,"handFrom":0,"handTo":0}],[{"value":0,"handFrom":1,"handTo":1}]],
-                           [[{"value":0,"handFrom":0,"handTo":0}],[{"value":2,"handFrom":1,"handTo":1}]]])
-register("B3 | C3 | A3",  [[[{"value":3,"handFrom":0,"handTo":1}],
-                            [{"value":3,"handFrom":1,"handTo":2}],
-                            [{"value":3,"handFrom":2,"handTo":0}]]])
-register("[43]41",        [[[{"value":4,"handFrom":0,"handTo":0},{"value":3,"handFrom":0,"handTo":0}]],[[{"value":4,"handFrom":0,"handTo":0}]],[[{"value":1,"handFrom":0,"handTo":0}]]])
-register("[333]",         [[[{"value":3,"handFrom":0,"handTo":0},{"value":3,"handFrom":0,"handTo":0},{"value":3,"handFrom":0,"handTo":0}]]])
-register("[63]1[32]5",    [[[{"value":6,"handFrom":0,"handTo":0},{"value":3,"handFrom":0,"handTo":0}]],[[{"value":1,"handFrom":0,"handTo":0}]],[[{"value":3,"handFrom":0,"handTo":0},{"value":2,"handFrom":0,"handTo":0}]],[[{"value":5,"handFrom":0,"handTo":0}]]])
-
-
-// More invalid inputs have to go here! This should be taken care of once errors are reworked.
-register("hmmm",          { "not": "an array", "nor": "a string" })
-register("54",            [[[{"value":5,"handFrom":0,"handTo":0}]],[[{"value":4,"handFrom":0,"handTo":0}]]])
-
+import assert     from "assert"
+import { get }    from "./database"
+import { getAll } from "./database"
 
 
 
@@ -83,7 +10,8 @@ register("54",            [[[{"value":5,"handFrom":0,"handTo":0}]],[[{"value":4,
 describe("Properties", function(){
 
    test("valid", {
-      "hmmm": false,
+      "{}": false,
+      "[]": false,
       "54": false,
       "0": true,
       "b": true,
@@ -97,22 +25,23 @@ describe("Properties", function(){
       "[333]": true,
    })
 
+
+   // Parsing errors in `test/notations.js`.
+
    test("error", {
-      // All possible error messages have to go here!
-      // I have to rework the errors anyway (namely, extend Error), as they got public with .equals(). Then 
-      // replace the .error string with the actual error.
-      "hmmm": "Invalid throws structure.",
+      "{}": "Invalid throws structure.",
+      "[]": "Invalid throws structure.",
       "54": "Invalid siteswap.",
    })
 
-   test("throws", Object.keys(siteswaps).reduce(function(result, name){
-      const siteswap = siteswaps[name]
-      if( siteswap.valid )
-         result[name] = siteswaps[name].input
-      return result
-   }, {}))
+   
+   // Test the throws of all registered (valid) siteswaps.
+
+   test("throws", getAll(false).filter(({ siteswap }) => siteswap.valid).reduce((r, s) => { r[s.name] = s.input; return r } , {}))
+
 
    test("degree", {
+      "54": undefined,
       "0": 1,
       "b": 1,
       "(4,2x)*": 2,
@@ -120,6 +49,7 @@ describe("Properties", function(){
    })
 
    test("props", {
+      "54": undefined,
       "0": 0,
       "b": 11,
       "(4,2x)*": 3,
@@ -127,6 +57,7 @@ describe("Properties", function(){
    })
 
    test("multiplex", {
+      "54": undefined,
       "0": 1,
       "b": 1,
       "[43]41": 2,
@@ -134,6 +65,7 @@ describe("Properties", function(){
    })
 
    test("greatestValue", {
+      "54": undefined,
       "0": 0,
       "b": 11,
       "[43]41": 4,
@@ -142,12 +74,14 @@ describe("Properties", function(){
    })
 
    test("period", {
+      "54": undefined,
       "0": 1,
       "(4,2x)*": 2,
       "531531": 3,
    })
 
    test("fullPeriod", {
+      "54": undefined,
       "0": 1,
       "(4,2x)*": 2,
       "B3 | C3 | A3": 9,
@@ -155,6 +89,7 @@ describe("Properties", function(){
    })
 
    test("groundState", {
+      "54": undefined,
       "0": true,
       "(4,2x)*": true,
       "B3 | C3 | A3": true,
@@ -164,6 +99,7 @@ describe("Properties", function(){
    })
 
    test("prime", {
+      "54": undefined,
       "0": true,
       "315": true,
       "(4,2x)*": true,
@@ -173,6 +109,7 @@ describe("Properties", function(){
    })
 
    test("states", {
+      "54":     undefined,
       "b":      [[[1,1,1,1,1,1,1,1,1,1,1]]],
 
       "531531": [[[1,1,1]],
@@ -205,7 +142,8 @@ describe("Properties", function(){
              [[[9],[10],[11],[1],[2],[3],[4],[5],[6],[7],[8]]],
              [[[10],[11],[1],[2],[3],[4],[5],[6],[7],[8],[9]]],
              [[[11],[1],[2],[3],[4],[5],[6],[7],[8],[9],[10]]]],
-   
+      "54": undefined,
+
       "531531": [[[[1],[2],[3]]],
                  [[[2],[3],[],[],[1]]],
                  [[[3],[],[2],[1]]],
@@ -261,42 +199,65 @@ describe("Properties", function(){
    })
 
    test("orbits", {
-      "531": ["501", "030"],
-      "531531": ["501", "030"],
-      "501": ["501"],
-      "423": ["420", "003"],
-      "5313": ["5300", "0013"],
-      "[43]41": ["[43]41"],
-      "[63]1[32]5": ["[63]1[32]5"],
-      "(4,2x)*": ["(4,0)(0,0)", "(0,2x)(2x,0)", "(0,0)(0,4)"],
+      "54": undefined,
+      "531": [get("501"), get("030")],
+      "531531": [get("501"), get("030")],
+      "501": [get("501")],
+      "423": [get("420"), get("003")],
+      "5313": [get("5300"), get("0013")],
+      "[43]41": [get("[43]41")],
+      "[63]1[32]5": [get("[63]1[32]5")],
+      "(4,2x)*": [get("(4,0)(0,0)"), get("(0,2x)(2x,0)"), get("(0,0)(0,4)")]
    })
 
    test("composition", {
-      "531": ["531"],
-      "531531": ["531"],
-      "51414": ["51", "414"],
-      "45141": ["51", "441"],
-      "3451413": ["3", "51", "441"],
+      "54": undefined,
+      "531": [get("531")],
+      "531531": [get("531")],
+      "51414": [get("51"), get("414")],
+      "45141": [get("51"), get("441")],
+      "3451413": [get("3"), get("51"), get("441")],
    })
 
+})
+
+
+
+describe("Methods", function(){
+
    test("rotate()", {
-      "531":    [{ args: [-3], result: "531" },
-                 { args: [-2], result: "315" },
-                 { args: [-1], result: "153" },
-                 { args: [0],  result: "531" },
-                 { args: [],   result: "315" },
-                 { args: [1],  result: "315" },
-                 { args: [2],  result: "153" },
-                 { args: [3],  result: "531" }],
-      "531531":  { args: [1], result: "315" },
-      "(4,2x)*": { args: [], result: "(2x,4)(4,2x)" }
+      "54":      { args: [], error: /Invalid siteswap\./ },
+      "531":    [{ args: [-3], result: get("531") },
+                 { args: [-2], result: get("315") },
+                 { args: [-1], result: get("153") },
+                 { args: [0],  result: get("531") },
+                 { args: [],   result: get("315") },
+                 { args: [1],  result: get("315") },
+                 { args: [2],  result: get("153") },
+                 { args: [3],  result: get("531") }],
+      "531531":  { args: [1], result: get("315") },
+      "(4,2x)*": { args: [], result: get("(2x,4)(4,2x)") }
    })
 
    test("equals()", {
+      "54":      { args: [], error: /Invalid siteswap\./ },      
       "(4,2x)*": { args: [get("(4,2x)(2x,4)")], result: true },
       "531531":  { args: [get("531")],          result: true },
       "531":     { args: [get("315")],          result: true }
    })
+
+
+   // TODO: add toString() notation relevant tests: "Incompatible 
+   // notations.", "This siteswap can't be converted to the target notation."
+
+   test("toString()", {
+      "54":      { args: [], error: /Invalid siteswap\./ },
+      "531":    [{ args: ["unsupported"], error: /Unsupported notation\./ },
+                 { args: [null], result: JSON.stringify(get("531").throws) }]
+   })
+
+   // Add tests for .log()? By overwriting console. Maybe add an output option?
+   // Something like .log(console) and by default return a string?
 
 })
 
@@ -305,27 +266,22 @@ describe("Properties", function(){
 
 
 function test( property, cases ){
-   
+
    if( /\(\)$/.test(property) )
-      testFunction( property.slice(0, -2), cases )
+      testMethod( property.slice(0, -2), cases )
    else
       testProperty( property, cases )
 
 }
-
-
-// A siteswap's property can only have one value.
-
+ 
 function testProperty( property, cases ){
 
    it(property, function(){
 
       const aliases = Object.keys(cases)
       for( const alias of aliases ){
-         const siteswap = get(alias)
-
-         const value1 = normalise(siteswap[property])
-         const value2 = normalise(cases[alias])
+         const value1 = get(alias)[property]
+         const value2 = cases[alias]
          assert.deepStrictEqual( value1, value2, `.${property} mismatch at "${alias}"`)
       }
 
@@ -333,10 +289,7 @@ function testProperty( property, cases ){
 
 }
 
-
-// A function can be tested multiple times; once for every `{ args, result }` object (single or array) on the right side.
-
-function testFunction( property, cases ){
+function testMethod( property, cases ){
    
    it(property, function(){
 
@@ -345,10 +298,11 @@ function testFunction( property, cases ){
          const siteswap = get(alias)
 
          const calls = [].concat(cases[alias])
-         for( const { args, result } of calls ){
-            const value1 = normalise( siteswap[property](...args) )
-            const value2 = normalise( result )
-            assert.deepStrictEqual( value1, value2, `.${property} mismatch at "${alias}"`)
+         for( const { args, result, error } of calls ){
+            if( error )
+               assert.throws( () => siteswap[property](...args), error )
+            else
+               assert.deepStrictEqual( siteswap[property](...args), result, `.${property}() mismatch at "${alias}"`)            
          }
       }
 
@@ -356,27 +310,3 @@ function testFunction( property, cases ){
 
 }
 
-
-// If a given value represents a siteswap (be it directly as Siteswap, or as a registered string), return its
-// `.throws`. Else return the passed value.
-
-function normalise( value ){
-   
-   if( Array.isArray(value) )
-      return value.map(normaliseSingle)
-
-   return normaliseSingle(value)
-
-}
-
-function normaliseSingle( value ){
-   
-   if( value instanceof Siteswap )
-      return value.throws
-
-   if( typeof value !== "string" || !siteswaps[value] )
-      return value
-
-   return siteswaps[value].throws
-
-}

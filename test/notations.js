@@ -1,8 +1,10 @@
 "use strict"
 
-import assert                        from "assert"
-import Siteswap                      from "../dist/siteswap"
+import assert   from "assert"
+import Siteswap from "../dist/siteswap"
 
+
+// Parser tests.
 
 const tests = {
 
@@ -167,7 +169,7 @@ const tests = {
       "<3p|3p>":                      { valid: true },
       "<3p|3p|3p>":                   { valid: false },
       "<3p2|3p1|3p>":                 { valid: false },
-      "<3p,3,3|3p>":                  { valid: false },
+      "<3p,3,3|3p>":                  { valid: false, error: "Invalid siteswap." },
       "<3p,3,3|3p,3,3>":              { valid: true },
       "<3p1,3,3|3p,3,3>":             { valid: false },
       "<3p2,3,3|3p1,3,3>":            { valid: true },
@@ -211,7 +213,7 @@ const tests = {
       "<(4p,4)|(4p,4)(4p,4)>":                     { valid: true, },
       "<(4p2,4)|(4p1,4)>":                         { valid: true },
       "<(4p,4)|(4p1,4)>":                          { valid: false },
-      "<(4p3,4)|(4p1,4)>":                         { valid: false },
+      "<(4p3,4)|(4p1,4)>":                         { valid: false, error: "Invalid throws structure." },
       "<(2p2,2p2)|(2p3,2p3)|(2p1,2p1)>":           { valid: true },
       "<(2xp2,0)|(0,2xp3)|(2xp4,0)|(0,2xp1)>":     { valid: true },
       "<([2x,4xp],2x)|(2x,[4x,2xp])>":             { valid: true },
@@ -252,7 +254,7 @@ const tests = {
       [` 5`]:                      { valid: false },
       [`A3`]:                      { valid: true },
       [`A10`]:                     { valid: true },
-      [`B3`]:                      { valid: false },
+      [`B3`]:                      { valid: false, error: "Invalid throws structure." },
       [`A6,A4`]:                   { valid: true },
       [`A6,A4,A6,A4,A6,A4`]:       { valid: true, period: 2 },
       [`B3
@@ -263,12 +265,12 @@ const tests = {
         C3
         A3`]:                      { valid: true },
       [`B3
-        B3`]:                      { valid: false },
+        B3`]:                      { valid: false, error: "Invalid siteswap." },
       [`[A4,B3],A4,A1
         [A3,B5],B3,B1`]:           { valid: true },
 
       [`(0,10)`]:                  { valid: true },
-      [`(1,10)`]:                  { valid: false },
+      [`(1,10)`]:                  { valid: false, error: "Invalid throws structure." },
       [`(0,6)(0,4)`]:              { valid: true },
       [`( 1,5)
         (-1,5)`]:                  { valid: true },
@@ -315,6 +317,33 @@ const tests = {
 
 describe("Notations", function(){
 
+   it("default", function(){
+
+      const siteswap = new Siteswap("3")
+      assertSiteswap(siteswap, { valid: true, notation: "compressed:async" }, `new Siteswap("3") parsing mismatch.`)
+   
+   })
+
+   it("unsupported", function(){
+
+      let siteswap
+      let properties
+
+      siteswap = new Siteswap("3", "unsupported")
+      properties = { valid: false, error: "Unsupported notation." }
+      assertSiteswap(siteswap, properties, `3 (unsupported) parsing mismatch.`)
+
+      siteswap = new Siteswap("3", null)
+      properties = { valid: false, error: "Unsupported notation." }
+      assertSiteswap(siteswap, properties, `3 (null) parsing mismatch.`)
+
+      siteswap = new Siteswap([[[{ value: 3, handFrom: 0, handTo: 0 }]]], null)
+      properties = { valid: true, error: undefined }
+      assertSiteswap(siteswap, properties, `3 (direct) parsing mismatch.`)
+
+   })
+
+
    const names = Object.keys(tests)
    for( const name of names ){
 
@@ -329,7 +358,9 @@ describe("Notations", function(){
                for( const string of strings ){
                   const siteswap = new Siteswap(string, name)
                   const properties = tests[notation][string]
-                  assertSiteswap(siteswap, properties, string)
+                  if( !properties.valid && !properties.error )
+                     properties.error = "Invalid syntax."
+                  assertSiteswap(siteswap, properties, `${string} (${siteswap.notation}) parsing mismatch.`)
                }
             }
          })
@@ -341,13 +372,12 @@ describe("Notations", function(){
                for( const string of strings ){
                   const siteswap = new Siteswap(string, name)
                   if( !siteswap.valid ){
-                     assert.throws( () => siteswap.toString(notation), /Invalid siteswap\./ )
                      continue
                   }
 
                   const unparsed = siteswap.toString(notation)
                   const properties = { throws: new Siteswap(unparsed, name).throws }
-                  assertSiteswap(siteswap, properties, string)
+                  assertSiteswap(siteswap, properties, `${string} (${siteswap.notation}) unparsing mismatch.`)
                }
             }
          })
@@ -360,10 +390,10 @@ describe("Notations", function(){
 
 
 
-function assertSiteswap( siteswap, properties, name ){
+function assertSiteswap( siteswap, properties, message ){
 
    for( const key of Object.keys(properties) )
-      assert.deepStrictEqual(siteswap[key], properties[key], `new Siteswap("${name}", "${siteswap.notation}").${key} === ${properties[key]}`)
+      assert.deepStrictEqual(siteswap[key], properties[key], message)
 
 }
 
