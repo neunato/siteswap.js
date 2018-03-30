@@ -296,6 +296,8 @@ const tests = {
       [` (0 , 6)(0,4 )`]:           { valid: true },
 
 
+      "A3\nB3\nC3\nD3\nE3\nF3\nG3\nH3\nI3\nJ3\nK3\nL3\nM3\nN3\nO3\nP3\nQ3\nR3\nS3\nT3\nU3\nV3\nW3\nX3\nY3\nZ3\nAA3\nAB3\nAC3\nAD3": { valid: true, degree: 30 },
+      "A3\nB3\nC3\nD3\nE3\nF3\nG3\nH3\nI3\nJ3\nK3\nL3\nM3\nN3\nO3\nP3\nQ3\nR3\nS3\nT3\nU3\nV3\nW3\nX3\nY3\nZ3\nAA3\nAB3\nAC3\nBD3": { valid: false, error: "Invalid siteswap." },
 
       // Parsing results.
       [`A0`]:                                 { valid: true, throws: [[[{ value: 0, handFrom: 0, handTo: 0 }]]] },

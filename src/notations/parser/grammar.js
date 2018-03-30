@@ -1,7 +1,5 @@
 ﻿
-import { alphabetic } from "../../alphabetic"
 import { numeric } from "../../alphabetic"
-
 
 
 
@@ -122,6 +120,7 @@ const terminals = [
    { tokenType: "integer_even", regex: "[1-9][0-9]*[02468]|[02468]", processor: toNumber }
 ]
 
+
 const rules = {
 
    "standard_async": function(){
@@ -171,9 +170,21 @@ const rules = {
 
       const ws = macros.ws()
 
+
+      const handAlpha = {
+         either: [
+            {
+               symbols: [{ repeat: [{ symbol: "letter_capital", fixed: true, value: "A" }], min: 1 , max: Infinity}, { allow: ["letter_capital"] }],
+               processor: ([rest, last]) => last ? [...rest, last].join("") : rest.join("")
+            },
+            "letter_capital"
+         ],
+         processor: numeric
+      }
+
       const tossAlpha = {
-         symbols: ["letter_capital", "integer"],
-         processor: ([hand, value]) => ({ value, hand: numeric(hand) })
+         symbols: [handAlpha, "integer"],
+         processor: ([hand, value]) => ({ value, hand })
       }
       const tossNum = {
          symbols: ["(", ws, { allow: "-" }, "integer", ws, ",", ws, "integer", ws, ")"],

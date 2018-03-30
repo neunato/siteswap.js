@@ -50,8 +50,9 @@ function serialise( rule, root = null ){
       return { symbols: rule.map(symbol => serialise(symbol, root)) }
    }
 
-   // Immutable value/branch.
-   if( rule.fixed ){
+   // Immutable value/branch; state of parsing attempt. Does not include
+   // rules that are fixed with predetermined values.
+   if( rule.fixed && !rule.value ){
       root.immutables.push(rule)
    }
 
