@@ -101,7 +101,7 @@ describe("Properties", function(){
       // All possible error messages have to go here!
       // I have to rework the errors anyway (namely, extend Error), as they got public with .equals(). Then 
       // replace the .error string with the actual error.
-      "hmmm": "Invalid input.",
+      "hmmm": "Invalid throws structure.",
       "54": "Invalid siteswap.",
    })
 

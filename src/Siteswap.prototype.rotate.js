@@ -4,6 +4,9 @@ import { Siteswap } from "./Siteswap";
 
 function rotate( count = 1 ){
 
+   if( !this.valid )
+      throw new Error("Invalid siteswap.");
+
    const throws = this.throws;
 
    if( count < 0 )

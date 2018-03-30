@@ -3,7 +3,7 @@ function validate( throws ){
 
    // This error assumes notations can't yield invalid .throws, only user can.
    if( !validStructure(throws) )
-      throw new Error("Invalid input.");
+      throw new Error("Invalid throws structure.");
 
 	const balance = throws.map( action => action.map(release => 0) );
 

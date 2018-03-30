@@ -5,7 +5,7 @@ function validate( throws ){
 
    // This error assumes notations can't yield invalid .throws, only user can.
    if( !validStructure(throws) )
-      throw new Error("Invalid input.");
+      throw new Error("Invalid throws structure.");
 
 	const balance = throws.map( action => action.map(release => 0) );
 
@@ -124,7 +124,7 @@ class State {
    constructor( schedule ){
 
       if( !Array.isArray(schedule) || !schedule.every(Array.isArray) )
-         throw new Error("Invalid input.")
+         throw new Error("Invalid schedule.")
 
       // Schedule already used.
       let state = states.schedules.get(schedule);
@@ -155,7 +155,7 @@ class State {
 
          // Check if toss distribution matches the beat's state.
          if( release.filter(({ value }) => value).length !== (this.schedule[i][0] || 0) )
-            throw new Error("dead")
+            throw new Error("Invalid action.")
 
          if( !release.length )
             continue
@@ -455,7 +455,7 @@ function numeric( string ){
       i++;
 
    if( i < string.length - 1 )
-      throw new Error("Invalid input.")
+      return null
 
    if( i === string.length )
       return (i - 1) * count
@@ -872,7 +872,7 @@ function serialise( rule, root = null ){
    // Strings refer to named rules.
    if( typeof rule === "string" ){
       if( !rules[rule] )
-         throw new Error("Impossible.")
+         throw new Error("Parsing error.")
       return serialise(rules[rule], root)
    }
 
@@ -894,7 +894,7 @@ function serialise( rule, root = null ){
 
    // Has to be an instruction object.
    if( typeof rule !== "object" ){
-      throw new Error("Impossible.")
+      throw new Error("Parsing error.")
    }
 
 
@@ -916,7 +916,7 @@ function serialise( rule, root = null ){
       delete rule.allow;
    }
    else {
-      throw new Error("Impossible.")
+      throw new Error("Parsing error.")
    }
 
    return rule
@@ -1043,7 +1043,7 @@ function parse( notation, string ){
 
    // This one's not meant to be caught, or happen.
    if( !notation || !rules[notation] )
-      throw new Error("Impossible.")
+      throw new Error("Parsing error.")
 
 
    // Not initialised yet.
@@ -1320,6 +1320,9 @@ function match( throws1, throws2, offset ){
 }
 
 function rotate( count = 1 ){
+
+   if( !this.valid )
+      throw new Error("Invalid siteswap.");
 
    const throws = this.throws;
 

@@ -41,7 +41,7 @@ function serialise( rule, root = null ){
    // Strings refer to named rules.
    if( typeof rule === "string" ){
       if( !rules[rule] )
-         throw new Error("Impossible.")
+         throw new Error("Parsing error.")
       return serialise(rules[rule], root)
    }
 
@@ -63,7 +63,7 @@ function serialise( rule, root = null ){
 
    // Has to be an instruction object.
    if( typeof rule !== "object" ){
-      throw new Error("Impossible.")
+      throw new Error("Parsing error.")
    }
 
 
@@ -85,7 +85,7 @@ function serialise( rule, root = null ){
       delete rule.allow
    }
    else {
-      throw new Error("Impossible.")
+      throw new Error("Parsing error.")
    }
 
    return rule
@@ -239,7 +239,7 @@ function parse( notation, string ){
 
    // This one's not meant to be caught, or happen.
    if( !notation || !rules[notation] )
-      throw new Error("Impossible.")
+      throw new Error("Parsing error.")
 
 
    // Not initialised yet.

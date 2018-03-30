@@ -21,7 +21,7 @@ function numeric( string ){
       i++
 
    if( i < string.length - 1 )
-      throw new Error("Invalid input.")
+      return null
 
    if( i === string.length )
       return (i - 1) * count

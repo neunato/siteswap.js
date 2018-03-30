@@ -28,7 +28,7 @@ class State {
    constructor( schedule ){
 
       if( !Array.isArray(schedule) || !schedule.every(Array.isArray) )
-         throw new Error("Invalid input.")
+         throw new Error("Invalid schedule.")
 
       // Schedule already used.
       let state = states.schedules.get(schedule)
@@ -59,7 +59,7 @@ class State {
 
          // Check if toss distribution matches the beat's state.
          if( release.filter(({ value }) => value).length !== (this.schedule[i][0] || 0) )
-            throw new Error("dead")
+            throw new Error("Invalid action.")
 
          if( !release.length )
             continue
