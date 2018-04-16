@@ -1,8 +1,8 @@
 # siteswap.js
 
-Representation of a siteswap in JavaScript.
+Parse, examine and manipulate juggling patterns in JavaScript.
 
-Validates a siteswap and sets its properties, such as the number of props used or coloured period. Determines the throw sequence, juggling states, orbits and composition of a siteswap.
+_Supported environments: Node 6.5+, Chrome, Firefox, Edge, Safari, Opera._
 
 
 ## Usage
@@ -10,7 +10,7 @@ Validates a siteswap and sets its properties, such as the number of props used o
 #### Siteswap( string, notation = "compressed" )
 
 - `string` - siteswap string or throws array.
-- `notation` - notation used to parse `string`. See [supported notations](#notations).
+- `notation` - notation(s) used to parse `string`. See [supported notations](#notations).
 
 ```javascript
 new Siteswap("753")
@@ -71,7 +71,7 @@ __`.log()`__ &raquo; outputs all the siteswap properties in a human friendly for
 
 -----
 
-Invalid siteswaps only have `.valid`, `.error`, and `.notation` properties set.
+Invalid siteswaps only have `.valid`, `.error`, and `.input` properties set.
 
 
 Example
