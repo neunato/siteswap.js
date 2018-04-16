@@ -6,23 +6,17 @@
   "scripts": {
     "build": "gulp build",
     "watch": "gulp default",
-    "test": "mocha --require babel-register"
+    "test": "mocha --require test/_babel-hook"
   },
   "license": "MIT",
   "devDependencies": {
-    "babel-core": "6.25.0",
-    "babel-preset-env": "1.6.0",
-    "babel-register": "6.24.1",
-    "glupost": "3.0.0",
-    "mocha": "5.0.5",
+    "babel-minify": "0.4.0",
+    "babel-preset-env": "1.6.1",
+    "babel-register": "6.26.0",
+    "glupost": "3.1.0",
+    "mocha": "5.1.0",
     "rollup": "0.57.1",
-    "rollup-plugin-node-resolve": "3.0.0",
-    "uglify-js": "3.0.25",
-    "umd": "3.0.1"
-  },
-  "babel": {
-    "presets": [
-      "env"
-    ]
+    "rollup-plugin-commonjs": "9.1.0",
+    "rollup-plugin-node-resolve": "3.3.0"
   }
 }
