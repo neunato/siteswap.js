@@ -34,11 +34,15 @@ describe("Properties", function(){
       "54": "Invalid siteswap.",
    })
 
-   
+   test("input", {
+      "{}": [{}, null],
+      "[]": [[], null],
+      "54": [[[[{"value":5,"handFrom":0,"handTo":0}]],[[{"value":4,"handFrom":0,"handTo":0}]]], null],
+   })
+
    // Test the throws of all registered (valid) siteswaps.
 
    test("throws", getAll(false).filter(({ siteswap }) => siteswap.valid).reduce((r, s) => { r[s.name] = s.input; return r } , {}))
-
 
    test("degree", {
       "54": undefined,

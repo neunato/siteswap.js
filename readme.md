@@ -29,7 +29,9 @@ The following properties/functions are exposed:
 
 __`.valid`__ &raquo; boolean showing if the siteswap is valid.
 
-__`.error`__ &raquo; error message set to invalid siteswaps.
+__`.error`__ &raquo; error message (set to invalid siteswaps).
+
+__`.input`__ &raquo; passed arguments (set to invalid siteswaps).
 
 __`.notation`__ &raquo; notation used to parse the siteswap.
 

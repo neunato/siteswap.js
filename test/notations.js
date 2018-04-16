@@ -362,7 +362,10 @@ describe("Notations", function(){
                   const properties = tests[notation][string]
                   if( !properties.valid && !properties.error )
                      properties.error = "Invalid syntax."
-                  assertSiteswap(siteswap, properties, `${string} (${siteswap.notation}) parsing mismatch.`)
+                  if( !properties.valid )
+                     properties.input = [string, name]
+
+                  assertSiteswap(siteswap, properties, `${string} (${name}) parsing mismatch.`)
                }
             }
          })

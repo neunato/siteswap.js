@@ -34,7 +34,7 @@ class Siteswap {
             throw error
 
          this.valid = false;
-         this.notation = notations;
+         this.input = [string, notations];
          this.error = error.message;
          return this;
       }
