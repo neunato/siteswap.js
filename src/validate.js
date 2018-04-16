@@ -1,9 +1,12 @@
 
+import { SiteswapError } from "./SiteswapError";
+
+
 function validate( throws ){
 
    // This error assumes notations can't yield invalid .throws, only user can.
    if( !validStructure(throws) )
-      throw new Error("Invalid throws structure.");
+      throw new SiteswapError("Invalid throws structure.");
 
 	const balance = throws.map( action => action.map(release => 0) );
 
@@ -21,7 +24,7 @@ function validate( throws ){
 	}
 
 	if( balance.some(action => action.some(count => count !== 0)) )
-		throw new Error("Invalid siteswap.");
+		throw new SiteswapError("Invalid siteswap.");
 
 }
 

@@ -1,11 +1,12 @@
 
-import { Siteswap } from "./Siteswap";
+import { Siteswap }      from "./Siteswap";
+import { SiteswapError } from "./SiteswapError";
 
 
 function equals( siteswap ){
 
    if( !this.valid )
-      throw new Error("Invalid siteswap.");
+      throw new SiteswapError("Invalid siteswap.");
 
    if( !(siteswap instanceof Siteswap) || !siteswap.valid )
       return false;

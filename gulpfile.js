@@ -16,7 +16,7 @@ const t = {
 
    minify(contents, file){
       try{
-         return minify(contents, { mangle: { exclude: ["Siteswap"] } }).code
+         return minify(contents, { mangle: { exclude: ["Siteswap", "SiteswapError"] } }).code
       }
       catch(e){
          handleMinifyError(e)

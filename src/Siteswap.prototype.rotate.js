@@ -1,11 +1,12 @@
 
-import { Siteswap } from "./Siteswap";
+import { Siteswap }      from "./Siteswap";
+import { SiteswapError } from "./SiteswapError";
 
 
 function rotate( count = 1 ){
 
    if( !this.valid )
-      throw new Error("Invalid siteswap.");
+      throw new SiteswapError("Invalid siteswap.");
 
    const throws = this.throws;
 

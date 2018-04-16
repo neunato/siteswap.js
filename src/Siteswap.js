@@ -1,4 +1,5 @@
 
+import { SiteswapError }      from "./SiteswapError";
 import { validate }           from "./validate";
 import { truncate }           from "./truncate";
 import { schedulise }         from "./schedulise";
@@ -27,10 +28,14 @@ class Siteswap {
          this.notation = notation;
          this.throws   = truncate(throws);
       }
-      catch(e){
+      catch( error ){
+
+         if( !(error instanceof SiteswapError) )
+            throw error
+
          this.valid = false;
          this.notation = notations;
-         this.error = e.message;
+         this.error = error.message;
          return this;
       }
 

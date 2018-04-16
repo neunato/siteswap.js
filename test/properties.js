@@ -226,7 +226,7 @@ describe("Properties", function(){
 describe("Methods", function(){
 
    test("rotate()", {
-      "54":      { args: [], error: /Invalid siteswap\./ },
+      "54":      { args: [], error: (e) => (e.name === "SiteswapError" && e.message === "Invalid siteswap.") },
       "531":    [{ args: [-3], result: get("531") },
                  { args: [-2], result: get("315") },
                  { args: [-1], result: get("153") },
@@ -240,7 +240,7 @@ describe("Methods", function(){
    })
 
    test("equals()", {
-      "54":      { args: [], error: /Invalid siteswap\./ },      
+      "54":      { args: [], error: (e) => (e.name === "SiteswapError" && e.message === "Invalid siteswap.") },      
       "(4,2x)*": { args: [get("(4,2x)(2x,4)")], result: true },
       "531531":  { args: [get("531")],          result: true },
       "531":     { args: [get("315")],          result: true }
@@ -251,8 +251,8 @@ describe("Methods", function(){
    // notations.", "This siteswap can't be converted to the target notation."
 
    test("toString()", {
-      "54":      { args: [], error: /Invalid siteswap\./ },
-      "531":    [{ args: ["unsupported"], error: /Unsupported notation\./ },
+      "54":      { args: [], error: (e) => (e.name === "SiteswapError" && e.message === "Invalid siteswap.") },
+      "531":    [{ args: ["unsupported"], error: (e) => (e.name === "SiteswapError" && e.message === "Unsupported notation.") },
                  { args: [null], result: JSON.stringify(get("531").throws) }]
    })
 

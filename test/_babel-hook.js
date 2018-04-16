@@ -1,4 +1,6 @@
 
 require("babel-register")({
-   presets: ["env"]
+   presets: ["env", {
+      plugins: [["transform-builtin-extend", { globals: ["Error"] }]]
+   }]
 })

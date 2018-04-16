@@ -1,5 +1,6 @@
 
 import { notations as declarations } from "./notations";
+import { SiteswapError }             from "./SiteswapError";
 
 
 function parse( string, notations ){
@@ -13,13 +14,13 @@ function parse( string, notations ){
    if( typeof string === "object" ){
       const notation = notations[0];
       if( (typeof notation !== "string" || !declarations[notation]) && notation !== null )
-         throw new Error("Unsupported notation.");
+         throw new SiteswapError("Unsupported notation.");
       return { notation, throws: string };
    }
 
    // Check if notations exists.
    if( notations.some(notation => typeof notation !== "string" || !declarations[notation]) )
-      throw new Error("Unsupported notation.");
+      throw new SiteswapError("Unsupported notation.");
 
    // When passed a string, try parsing with wanted notations, returning the first 
    // successful result.
@@ -29,7 +30,7 @@ function parse( string, notations ){
          return { notation, throws };
    }
 
-   throw new Error("Invalid syntax.");
+   throw new SiteswapError("Invalid syntax.");
 
 }
 
