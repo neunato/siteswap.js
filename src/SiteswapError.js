@@ -1,13 +1,5 @@
 
-class SiteswapError extends Error {
-
-   constructor( message ){
-
-      super(message)
-
-   }
-
-}
+class SiteswapError extends Error {}
 
 SiteswapError.prototype.name = "SiteswapError"
 

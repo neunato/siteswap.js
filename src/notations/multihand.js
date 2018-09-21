@@ -1,7 +1,6 @@
 
-
-import { parse }      from "./parser/parse";
-import { alphabetic } from "../alphabetic";
+import { parse }      from "./parser/parse"
+import { alphabetic } from "../alphabetic"
 
 
 const declaration = {
@@ -10,27 +9,27 @@ const declaration = {
    parse: (string) => parse("multihand", string),
    unparse
 
-};
+}
 
-export { declaration };
+export { declaration }
 
 
 
-function unparse( throws ){
+function unparse(throws) {
 
-   const count = throws[0].length;
-   const rows = [];
-   for( let i = 0; i < count; i++ ){
-      const row = throws.map(action => unparseRelease(action[i])).join(",");
-      rows.push(row);
+   const count = throws[0].length
+   const rows = []
+   for (let i = 0; i < count; i++) {
+      const row = throws.map((action) => unparseRelease(action[i])).join(",")
+      rows.push(row)
    }
-   return rows.join("\n");
+   return rows.join("\n")
 
 }
 
-function unparseRelease( release ){
+function unparseRelease(release) {
 
-   const string = release.map(({ value, handTo }) => `${alphabetic(handTo)}${value}`).join(",");
-   return release.length === 1 ? string : `[${string}]`;
+   const string = release.map(({ value, handTo }) => `${alphabetic(handTo)}${value}`).join(",")
+   return release.length === 1 ? string : `[${string}]`
 
 }

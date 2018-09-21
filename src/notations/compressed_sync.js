@@ -1,10 +1,10 @@
 
-import { parse } from "./parser/parse";
+import { parse } from "./parser/parse"
 
 
-function unparseToss({ value, handFrom, handTo }){
-   
-   return `${value * 2}${handFrom !== handTo ? "x" : ""}`;
+function unparseToss({ value, handFrom, handTo }) {
+
+   return `${value * 2}${handFrom === handTo ? "" : "x"}`
 
 }
 
@@ -16,8 +16,8 @@ const declaration = {
    },
    hands: () => ["Left", "Right"],
    parse: (string) => parse("compressed_sync", string),
-   unparse: (throws) => throws.map( action => "(" + action.map( release => release.length === 1 ? unparseToss(release[0]) : `[${release.map(unparseToss).join("")}]` ) + ")"  ).join("")
+   unparse: (throws) => throws.map((action) => `(${action.map((release) => (release.length === 1 ? unparseToss(release[0]) : `[${release.map(unparseToss).join("")}]`))})`).join("")
 
-};
+}
 
-export { declaration };
+export { declaration }

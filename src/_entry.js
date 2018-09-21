@@ -1,3 +1,3 @@
 
-import { Siteswap } from "./Siteswap";
-export { Siteswap as default };
+import { Siteswap } from "./Siteswap"
+export { Siteswap as default }

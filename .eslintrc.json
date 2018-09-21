@@ -1,0 +1,6 @@
+{
+   "extends": "plugin:so-jah-seh/all",
+   "parserOptions": {
+      "sourceType": "module"
+   }
+}

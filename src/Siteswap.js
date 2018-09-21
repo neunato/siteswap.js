@@ -1,71 +1,70 @@
 
-import { SiteswapError }      from "./SiteswapError";
-import { validate }           from "./validate";
-import { truncate }           from "./truncate";
-import { schedulise }         from "./schedulise";
-import { scheduliseStrictly } from "./scheduliseStrictly";
-import { orbitise }           from "./orbitise";
-import { decompose }          from "./decompose";
-import { parse }              from "./parse";
-import { isGround }           from "./isGround";
+import { SiteswapError }      from "./SiteswapError"
+import { validate }           from "./validate"
+import { truncate }           from "./truncate"
+import { schedulise }         from "./schedulise"
+import { scheduliseStrictly } from "./scheduliseStrictly"
+import { orbitise }           from "./orbitise"
+import { decompose }          from "./decompose"
+import { parse }              from "./parse"
+import { isGround }           from "./isGround"
 
-import { equals }             from "./Siteswap.prototype.equals";
-import { rotate }             from "./Siteswap.prototype.rotate";
-import { toString }           from "./Siteswap.prototype.toString";
-import { log }                from "./Siteswap.prototype.log";
+import { equals }             from "./Siteswap.prototype.equals"
+import { rotate }             from "./Siteswap.prototype.rotate"
+import { toString }           from "./Siteswap.prototype.toString"
+import { log }                from "./Siteswap.prototype.log"
 
 
 class Siteswap {
-   
-   constructor( string, notations = "compressed" ){
 
-      try{
-         const { throws, notation } = parse(string, [].concat(notations));
+   constructor(string, notations = "compressed") {
 
-         validate(throws);
+      try {
+         const { throws, notation } = parse(string, [].concat(notations))
 
-         this.valid    = true;
-         this.notation = notation;
-         this.throws   = truncate(throws);
+         validate(throws)
+
+         this.valid = true
+         this.notation = notation
+         this.throws = truncate(throws)
       }
-      catch( error ){
-
-         if( !(error instanceof SiteswapError) )
+      catch (error) {
+         if (!(error instanceof SiteswapError))
             throw error
 
-         this.valid = false;
-         this.input = [string, notations];
-         this.error = error.message;
-         return this;
+         this.valid = false
+         this.input = [string, notations]
+         this.error = error.message
+         return this
       }
 
 
-      const throws       = this.throws;
-      const values       = throws.reduce((result, action) => result.concat( ...action.map(release => release.map(({value}) => value)) ), []);
+      const { throws } = this
+      const values = throws.reduce((result, action) => result.concat(...action.map((release) => release.map(({ value }) => value))), [])
 
-      this.degree        = throws[0].length;
-      this.props         = values.reduce((sum, value) => sum + value) / throws.length;
-      this.multiplex     = throws.reduce((max, action) => Math.max( max, ...action.map(({length}) => length) ), 0);
-      this.greatestValue = Math.max(...values);
+      this.degree = throws[0].length
+      this.props = values.reduce((sum, value) => sum + value) / throws.length
+      this.multiplex = throws.reduce((max, action) => Math.max(max, ...action.map(({ length }) => length)), 0)
+      this.greatestValue = Math.max(...values)
 
-      this.states        = schedulise(this);
-      this.strictStates  = scheduliseStrictly(this);
-      this.orbits        = orbitise(this);
-      this.composition   = decompose(this);
+      this.states = schedulise(this)
+      this.strictStates = scheduliseStrictly(this)
+      this.orbits = orbitise(this)
+      this.composition = decompose(this)
 
-      this.period        = this.states.length;
-      this.fullPeriod    = this.strictStates.length;
-      this.prime         = this.composition.length === 1;
-      this.groundState   = this.states.some(isGround);
+      this.period = this.states.length
+      this.fullPeriod = this.strictStates.length
+      this.prime = this.composition.length === 1
+      this.groundState = this.states.some(isGround)
 
    }
 
 }
 
-Siteswap.prototype.equals   = equals;
-Siteswap.prototype.rotate   = rotate;
-Siteswap.prototype.toString = toString;
-Siteswap.prototype.log      = log;
+Siteswap.prototype.equals = equals
+Siteswap.prototype.rotate = rotate
+Siteswap.prototype.toString = toString
+Siteswap.prototype.log = log
 
 
-export { Siteswap };
+export { Siteswap }

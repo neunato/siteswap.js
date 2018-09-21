@@ -1,26 +1,26 @@
 
-import { declaration as standard_async }   from "./notations/standard_async";
-import { declaration as standard_sync }    from "./notations/standard_sync";
-import { declaration as compressed_async } from "./notations/compressed_async";
-import { declaration as compressed_sync }  from "./notations/compressed_sync";
-import { declaration as passing_async }    from "./notations/passing_async";
-import { declaration as passing_sync }     from "./notations/passing_sync";
-import { declaration as multihand }        from "./notations/multihand";
+import { declaration as standardAsync }   from "./notations/standard_async"
+import { declaration as standardSync }    from "./notations/standard_sync"
+import { declaration as compressedAsync } from "./notations/compressed_async"
+import { declaration as compressedSync }  from "./notations/compressed_sync"
+import { declaration as passingAsync }    from "./notations/passing_async"
+import { declaration as passingSync }     from "./notations/passing_sync"
+import { declaration as multihand }       from "./notations/multihand"
 
 
 const notations = {
 
-   "standard:async":   standard_async,
-   "standard:sync":    standard_sync,
+   "standard:async":   standardAsync,
+   "standard:sync":    standardSync,
    "standard":         ["standard:async", "standard:sync"],
-   "compressed:async": compressed_async,
-   "compressed:sync":  compressed_sync,
+   "compressed:async": compressedAsync,
+   "compressed:sync":  compressedSync,
    "compressed":       ["compressed:async", "compressed:sync"],
-   "passing:async":    passing_async,
-   "passing:sync":     passing_sync,
+   "passing:async":    passingAsync,
+   "passing:sync":     passingSync,
    "passing":          ["passing:async", "passing:sync"],
    "multihand":        multihand
 
-};
+}
 
-export { notations };
+export { notations }

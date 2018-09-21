@@ -1,22 +1,21 @@
 
-import { getInitialState } from "./graph";
+import { getInitialState } from "./graph"
 
 
-function schedulise( siteswap ){
+function schedulise(siteswap) {
 
-   const states = [];
-   const first = getInitialState(siteswap);
-   let last = first;
+   const states = []
+   const first = getInitialState(siteswap)
+   let last = first
    do {
-      for( const action of siteswap.throws ){
-         states.push( last.schedule );
-         last = last.advance(action);
+      for (const action of siteswap.throws) {
+         states.push(last.schedule)
+         last = last.advance(action)
       }
-   } while( first !== last );
-
-   return states;
+   } while (first !== last)
+   return states
 
 }
 
 
-export { schedulise };
+export { schedulise }

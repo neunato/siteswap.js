@@ -1,26 +1,21 @@
-﻿
-"use strict"
-
 
 import { rules } from "./grammar.js"
 
 
 
-const error = { ERROR: true }            // Used as a Symbol, could be expanded with error details.
+const error = { ERROR: true } // Used as a Symbol, could be expanded with error details.
 
 let tokens
 let tokenAt = 0
 
 
 
-
-// Notation (root) rules keep references to reachable terminals and reachable `fixed` rules, whose token value or 
+// Notation (root) rules keep references to reachable terminals and reachable `fixed` rules, whose token value or
 // parsed branch doesn't change within a single parsing attempt.
 
-function serialise( rule, root = null ){
+function serialise(rule, root = null) {
 
-   if( root === null ){
-
+   if (root === null) {
       const root = {}
       root.immutables = []
       root.terminals = new Set()
@@ -34,54 +29,53 @@ function serialise( rule, root = null ){
 
 
    // Optional branch.
-   if( rule === null ){
+   if (rule === null)
       return rule
-   }
+
 
    // Strings refer to named rules.
-   if( typeof rule === "string" ){
-      if( !rules[rule] )
+   if (typeof rule === "string") {
+      if (!rules[rule])
          throw new Error("Parsing error.")
       return serialise(rules[rule], root)
    }
 
    // An array represents a sequence of symbols.
-   if( Array.isArray(rule) ){
-      return { symbols: rule.map(symbol => serialise(symbol, root)) }
-   }
+   if (Array.isArray(rule))
+      return { symbols: rule.map((symbol) => serialise(symbol, root)) }
+
 
    // Immutable value/branch; state of parsing attempt. Does not include
    // rules that are fixed with predetermined values.
-   if( rule.fixed && !rule.value ){
+   if (rule.fixed && !rule.value)
       root.immutables.push(rule)
-   }
+
 
    // Terminal token.
-   if( rule.tokenType ){
+   if (rule.tokenType) {
       root.terminals.add(rule)
       return rule
    }
 
    // Has to be an instruction object.
-   if( typeof rule !== "object" ){
+   if (typeof rule !== "object")
       throw new Error("Parsing error.")
-   }
 
 
 
-   if( rule.symbol ){
+   if (rule.symbol) {
       rule.symbol = serialise(rule.symbol, root)
    }
-   else if( rule.symbols ){
-      rule.symbols = rule.symbols.map(symbol => serialise(symbol, root))
+   else if (rule.symbols) {
+      rule.symbols = rule.symbols.map((symbol) => serialise(symbol, root))
    }
-   else if( rule.repeat ){
-      rule.repeat = rule.repeat.map(symbol => serialise(symbol, root))
+   else if (rule.repeat) {
+      rule.repeat = rule.repeat.map((symbol) => serialise(symbol, root))
    }
-   else if( rule.either ){
-      rule.either = rule.either.map(symbol => serialise(symbol, root))
+   else if (rule.either) {
+      rule.either = rule.either.map((symbol) => serialise(symbol, root))
    }
-   else if( rule.allow ){
+   else if (rule.allow) {
       rule.either = [serialise(rule.allow, root), null]
       delete rule.allow
    }
@@ -96,16 +90,16 @@ function serialise( rule, root = null ){
 
 // Parse a string to tokens based on a rule.
 
-function tokenise( terminals, string ){
-   
-  // const terminals = rule.terminals
-  const regex = new RegExp(terminals.sort((a, b) => a.index - b.index).map(({ regex }) => `(${regex})`).join("|"), "y")
+function tokenise(terminals, string) {
 
-  // const regex = new RegExp(tokenTypes.map(({ regex }) => `(${regex})`).join("|"), "y")
+   // Const terminals = rule.terminals
+   const regex = new RegExp(terminals.sort((a, b) => a.index - b.index).map(({ regex }) => `(${regex})`).join("|"), "y")
+
+   // Const regex = new RegExp(tokenTypes.map(({ regex }) => `(${regex})`).join("|"), "y")
    const tokens = []
-   while( regex.lastIndex < string.length ){
+   while (regex.lastIndex < string.length) {
       const matches = regex.exec(string)
-      if( matches === null )
+      if (matches === null)
          return null
       const index = matches.findIndex((type, i) => i && type)
       tokens.push({ type: terminals[index - 1].tokenType, value: matches[index] })
@@ -115,51 +109,27 @@ function tokenise( terminals, string ){
 }
 
 
-// Extract terminal (token) rules relevant for a rule.
+// Parse tokens given a rule, immediately collecting results.
 
-function markTerminals( rule ){
-
-   if( rule === null ){
-      return
-   }
-
-   if( rule.tokenType ){
-      rules[rule.tokenType].marked = true
-      return
-   }
-
-   if( rule.symbol ){
-      markTerminals(rule.symbol)
-      return
-   }
-
-   const children = rule.symbols || rule.either || rule.repeat
-   if( !children )
-      return
-   for( const symbol of children )
-      markTerminals(symbol)
-
-}
-
-function parseRule( rule ){
+function parseRule(rule) {
 
    let result
 
    // Used for optional rules.
-   if( rule === null ){
+   if (rule === null)
       return null
-   }
+
 
    // Terminal symbol.
-   if( rule.tokenType ){
+   if (rule.tokenType) {
       const token = tokens[tokenAt]
-      if( !token || token.type !== rule.tokenType )
+      if (!token || token.type !== rule.tokenType)
          return error
 
-      if( rule.fixed ){
-         if( !rule.value )
+      if (rule.fixed) {
+         if (!rule.value)
             rule.value = token.value
-         else if( token.value !== rule.value )
+         else if (token.value !== rule.value)
             return error
       }
 
@@ -168,58 +138,57 @@ function parseRule( rule ){
    }
 
    // List of symbols.
-   else if( rule.symbol ){
+   else if (rule.symbol) {
       result = parseRule(rule.symbol)
-      if( result === error )
+      if (result === error)
          return error
    }
 
    // List of symbols.
-   else if( rule.symbols ){
+   else if (rule.symbols) {
       result = []
-      for( const symbol of rule.symbols ){
+      for (const symbol of rule.symbols) {
          const parsed = parseRule(symbol)
-         if( parsed === error )
+         if (parsed === error)
             return error
          result.push(parsed)
       }
    }
 
    // List of symbols to repeat.
-   else if( rule.repeat ){
+   else if (rule.repeat) {
       result = []
-      while( result.length < rule.max ){
+      while (result.length < rule.max) {
          const at = tokenAt
          const parsed = parseRule({ symbols: rule.repeat })
-         if( parsed === error ){
+         if (parsed === error) {
             tokenAt = at
             break
          }
          result.push(parsed)
       }
 
-      if( result.length < rule.min || result.length > rule.max ){
+      if (result.length < rule.min || result.length > rule.max)
          return error
-      }
+
    }
 
    // List of possible parsing branches; return the first that parses successfully.
-   else if( rule.either ){
-
-      for( const branch of rule.either ){
+   else if (rule.either) {
+      for (const branch of rule.either) {
          const at = tokenAt
          const parsed = parseRule(branch)
-         if( parsed === error ){
+         if (parsed === error) {
             tokenAt = at
             continue
          }
 
-         const processor = rule.processor
+         const { processor } = rule
 
-         if( rule.fixed ){
-            if( rule.value === undefined )
+         if (rule.fixed) {
+            if (rule.value === undefined)
                rule.value = branch
-            else if( branch !== rule.value )
+            else if (branch !== rule.value)
                return error
          }
 
@@ -236,22 +205,22 @@ function parseRule( rule ){
 
 // Returns the throws array or null on fails.
 
-function parse( notation, string ){
+function parse(notation, string) {
 
    // This one's not meant to be caught, or happen.
-   if( !notation || !rules[notation] )
+   if (!notation || !rules[notation])
       throw new Error("Parsing error.")
 
 
    // Not initialised yet.
-   if( typeof rules[notation] === "function" ){
+   if (typeof rules[notation] === "function")
       rules[notation] = serialise(rules[notation]())
-   }
+
 
    const rule = rules[notation]
 
    // Clear the state of previous run.
-   for( const symbol of rule.immutables )
+   for (const symbol of rule.immutables)
       delete symbol.value
 
 
@@ -259,11 +228,11 @@ function parse( notation, string ){
 
    tokens = tokenise(rule.terminals, string)
 
-   if( !tokens || !tokens.length )
+   if (!tokens || !tokens.length)
       return null
 
    const result = parseRule(rule)
-   if( result === error || tokenAt !== tokens.length )
+   if (result === error || tokenAt !== tokens.length)
       return null
 
    return result

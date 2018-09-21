@@ -6,7 +6,8 @@
   "scripts": {
     "build": "gulp build",
     "watch": "gulp default",
-    "test": "mocha --require test/_babel-hook"
+    "test": "mocha --require test/_babel-hook",
+    "lint": "eslint --ignore-pattern dist/ ."
   },
   "license": "MIT",
   "devDependencies": {
@@ -14,6 +15,8 @@
     "babel-plugin-transform-builtin-extend": "1.1.2",
     "babel-preset-env": "1.6.1",
     "babel-register": "6.26.0",
+    "eslint": "5.6.0",
+    "eslint-plugin-so-jah-seh": "0.1.2",
     "glupost": "3.1.0",
     "mocha": "5.1.0",
     "rollup": "0.57.1",

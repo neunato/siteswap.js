@@ -1,5 +1,5 @@
 
-import { parse } from "./parser/parse";
+import { parse } from "./parser/parse"
 
 
 const declaration = {
@@ -9,8 +9,8 @@ const declaration = {
    },
    hands: () => ["Hand"],
    parse: (string) => parse("standard_async", string),
-   unparse: (throws) => throws.map( ([release]) => release.length === 1 ? release[0].value : `[${release.map(({ value }) => value).join(",")}]`).join(",")
+   unparse: (throws) => throws.map(([release]) => (release.length === 1 ? release[0].value : `[${release.map(({ value }) => value).join(",")}]`)).join(",")
 
-};
+}
 
-export { declaration };
+export { declaration }
