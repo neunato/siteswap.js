@@ -1,7 +1,7 @@
 
 import assert     from "assert"
-import { get }    from "./database"
-import { getAll } from "./database"
+import { get }    from "./register"
+import { getAll } from "./register"
 
 
 
