@@ -2,12 +2,6 @@
 import { parse } from "./parser/parse"
 
 
-function unparseToss({ value, handFrom, handTo }) {
-
-   return `${value * 2}${handFrom === handTo ? "" : "x"}`
-
-}
-
 const declaration = {
 
    limits: {
@@ -15,9 +9,21 @@ const declaration = {
    },
    hands: () => ["Left", "Right"],
    parse: (string) => parse("standard_sync", string),
-   unparse: (throws) => throws.map((action) => `(${action.map((release) => (release.length === 1 ? unparseToss(release[0]) : `[${release.map(unparseToss).join(",")}]`))})`).join("")
+   unparse
 
 }
 
-export { declaration }
+function unparse(throws) {
 
+   return throws.map((action) => {
+      const result = action.map((release) => {
+         const string = release.map(({ value, handFrom, handTo }) => `${value * 2}${handFrom === handTo ? "" : "x"}`).join(",")
+         return release.length > 1 ? `[${string}]` : string
+      })
+      return `(${result})`
+   }).join("")
+
+}
+
+
+export { declaration }

@@ -11,25 +11,17 @@ const declaration = {
 
 }
 
-export { declaration }
-
-
-
 function unparse(throws) {
 
-   const count = throws[0].length
-   const rows = []
-   for (let i = 0; i < count; i++) {
-      const row = throws.map((action) => unparseRelease(action[i])).join(",")
-      rows.push(row)
-   }
-   return rows.join("\n")
+   return throws[0].map((_, i) => {
+      return throws.map((action) => {
+         const release = action[i]
+         const string = release.map(({ value, handTo }) => `${alphabetic(handTo)}${value}`).join(",")
+         return release.length === 1 ? string : `[${string}]`
+      }).join(",")
+   }).join("\n")
 
 }
 
-function unparseRelease(release) {
 
-   const string = release.map(({ value, handTo }) => `${alphabetic(handTo)}${value}`).join(",")
-   return release.length === 1 ? string : `[${string}]`
-
-}
+export { declaration }

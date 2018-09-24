@@ -9,8 +9,18 @@ const declaration = {
    },
    hands: () => ["Hand"],
    parse: (string) => parse("standard_async", string),
-   unparse: (throws) => throws.map(([release]) => (release.length === 1 ? release[0].value : `[${release.map(({ value }) => value).join(",")}]`)).join(",")
+   unparse
 
 }
+
+function unparse(throws) {
+
+   return throws.map(([release]) => {
+      const string = release.map(({ value }) => value).join(",")
+      return release.length > 1 ? `[${string}]` : string
+   }).join(",")
+
+}
+
 
 export { declaration }

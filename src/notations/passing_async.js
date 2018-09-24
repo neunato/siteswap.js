@@ -13,23 +13,18 @@ const declaration = {
 
 }
 
-export { declaration }
-
-
-
 function unparse(throws) {
 
-   const count = throws[0].length
-   const strings = []
-   for (let i = 0; i < count; i++)
-      strings.push(throws.map((action) => unparseRelease(action[i])).join(","))
-   return `<${strings.join("|")}>`
+   const result = throws[0].map((_, i) => {
+      return throws.map((action) => {
+         const release = action[i]
+         const string = release.map(({ value, handFrom, handTo }) => `${value}${handFrom === handTo ? "" : `p${handTo + 1}`}`).join(",")
+         return release.length > 1 ? `[${string}]` : string
+      }).join(",")
+   }).join("|")
+   return `<${result}>`
 
 }
 
-function unparseRelease(release) {
 
-   const string = release.map(({ value, handFrom, handTo }) => `${value}${handFrom === handTo ? "" : `p${handTo + 1}`}`).join(",")
-   return release.length === 1 ? string : `[${string}]`
-
-}
+export { declaration }
