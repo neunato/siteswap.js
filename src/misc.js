@@ -41,6 +41,43 @@ function ntoa(n) {
 
 }
 
+// Bijective hexavigesimal to decimal number (A => 0, Z => 25, AA => 26, ZZ => 701, AAA => 702).
+
+function bhtod(string) {
+
+   if (typeof string !== "string")
+      throw new Error("Expected string.")
+
+   if (!/^[a-zA-Z]+$/.test(string))
+      throw new Error("Expected alphabetic string.")
+
+   return [...string].reduce((n, c, i, { length }) => n + ((c.charCodeAt(0) - codes.A + 1) * (26 ** (length - i - 1))), 0) - 1
+
+}
+
+// Decimal to bijective hexavigesimal number (0 => A, 25 => Z, 26 => AA, 701 => ZZ, 702 => AAA).
+
+function dtobh(number) {
+
+   if (typeof number !== "number")
+      throw new Error("Expected number.")
+
+   if (number < 0)
+      throw new Error("Expected number in [0, ∞) range.")
+
+   number++
+
+   const result = []
+   while (number > 0) {
+      result.push(String.fromCharCode(codes.A + ((number - 1) % 26)))
+      number = Math.floor((number - 1) / 26)
+   }
+   return result.reverse().join("")
+
+}
+
 
 export { aton }
 export { ntoa }
+export { bhtod }
+export { dtobh }

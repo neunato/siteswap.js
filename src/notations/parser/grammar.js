@@ -1,6 +1,6 @@
 
-import { numeric } from "../../alphabetic"
-import { aton }    from "../../misc"
+import { bhtod } from "../../misc"
+import { aton }  from "../../misc"
 
 
 let whitespace = true
@@ -178,7 +178,7 @@ const rules = {
             },
             "letter_capital"
          ],
-         processor: numeric
+         processor: bhtod
       }
       const tossAlpha = {
          symbols: [handAlpha, "integer"],

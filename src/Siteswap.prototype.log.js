@@ -1,6 +1,6 @@
 
-import { notations }  from "./notations"
-import { alphabetic } from "./alphabetic"
+import { notations } from "./notations"
+import { dtobh }     from "./misc"
 
 
 function log() {
@@ -25,7 +25,7 @@ function log() {
 
 
    if (this.degree > 2) {
-      hands = Array(this.degree).fill().map((_, i) => alphabetic(i))
+      hands = Array(this.degree).fill().map((_, i) => dtobh(i))
 
       lines.push("hand labels")
       const oldLabels = notations[this.notation].hands(this.degree)
