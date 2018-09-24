@@ -10,11 +10,11 @@ function mark(orbit, map, throws, i, j) {
       if (toss.value === 0)
          continue
       const beat = (i + toss.value) % throws.length
-      if (map[beat][toss.handTo] === orbit)
+      if (map[beat][toss.to] === orbit)
          continue
 
-      map[beat][toss.handTo] = orbit
-      mark(orbit, map, throws, beat, toss.handTo)
+      map[beat][toss.to] = orbit
+      mark(orbit, map, throws, beat, toss.to)
    }
 
 }
@@ -45,7 +45,7 @@ function orbitise(siteswap) {
    for (let i = 0; i < throws.length; i++) {
       const action = throws[i]
       for (const orbit of orbits)
-         orbit.push(action.map((release, j) => (map[i][j] === orbit ? release : [{ value: 0, handFrom: j, handTo: j }])))
+         orbit.push(action.map((release, j) => (map[i][j] === orbit ? release : [{ value: 0, from: j, to: j }])))
    }
 
    return orbits.map((orbit) => new Siteswap(orbit, notation))

@@ -34,7 +34,7 @@ describe("Properties", () => {
    test("input", {
       "{}": [{}, null],
       "[]": [[], null],
-      "54": [[[[{ "value": 5, "handFrom": 0, "handTo": 0 }]], [[{ "value": 4, "handFrom": 0, "handTo": 0 }]]], null]
+      "54": [[[[{ "value": 5, "from": 0, "to": 0 }]], [[{ "value": 4, "from": 0, "to": 0 }]]], null]
    })
 
    // Test the throws of all registered (valid) siteswaps.

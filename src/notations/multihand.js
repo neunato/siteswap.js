@@ -16,7 +16,7 @@ function unparse(throws) {
    return throws[0].map((_, i) => {
       return throws.map((action) => {
          const release = action[i]
-         const string = release.map(({ value, handTo }) => `${dtobh(handTo)}${value}`).join(",")
+         const string = release.map(({ value, to }) => `${dtobh(to)}${value}`).join(",")
          return release.length === 1 ? string : `[${string}]`
       }).join(",")
    }).join("\n")

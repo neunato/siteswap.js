@@ -15,10 +15,10 @@ function validate(throws) {
       for (const release of action) {
          for (const toss of release) {
             // Outgoing toss counts.
-            balance[beat][toss.handFrom]++
+            balance[beat][toss.from]++
 
             // Incoming toss counts.
-            balance[(beat + toss.value) % throws.length][toss.handTo]--
+            balance[(beat + toss.value) % throws.length][toss.to]--
          }
       }
    }
@@ -37,7 +37,7 @@ function validStructure(throws) {
       if (!Array.isArray(action) || action.length !== throws[0].length)
          return false
 
-      if (action.some((release) => !Array.isArray(release) || !release.every(({ value, handFrom, handTo }) => value !== undefined && handFrom !== undefined && handTo !== undefined && handFrom < action.length && handTo < action.length)))
+      if (action.some((release) => !Array.isArray(release) || !release.every(({ value, from, to }) => value !== undefined && from !== undefined && to !== undefined && from < action.length && to < action.length)))
          return false
    }
 

@@ -19,9 +19,9 @@ function unparse(throws) {
 
    return throws.map((action) => {
       const result = action.map((release) => {
-         const string = release.map(({ value, handFrom, handTo }) => {
+         const string = release.map(({ value, from, to }) => {
             value *= 2
-            return `${(value > 9 ? ntoa(value) : value)}${handFrom === handTo ? "" : "x"}`
+            return `${(value > 9 ? ntoa(value) : value)}${from === to ? "" : "x"}`
          }).join("")
          return release.length > 1 ? `[${string}]` : string
       })

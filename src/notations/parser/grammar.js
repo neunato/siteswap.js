@@ -291,7 +291,7 @@ function finaliseAsync(throws) {
    for (const action of throws) {
       for (const release of action) {
          for (let i = 0; i < release.length; i++)
-            release[i] = { value: release[i], handFrom: 0, handTo: 0 }
+            release[i] = { value: release[i], from: 0, to: 0 }
       }
    }
    return throws
@@ -306,7 +306,7 @@ function finaliseSync(throws) {
          const release = action[i]
          for (let j = 0; j < release.length; j++) {
             const { value, cross } = release[j]
-            release[j] = { value: value / 2, handFrom: i, handTo: cross ? 1 - i : i }
+            release[j] = { value: value / 2, from: i, to: cross ? 1 - i : i }
          }
       }
    }
@@ -320,10 +320,10 @@ function finaliseMultihand(rows) {
    const period = rows.map(({ length }) => length).reduce(lcm)
    const throws = []
    for (let i = 0; i < period; i++) {
-      const action = rows.map((row) => row[i % row.length]).map((release, handFrom) => {
+      const action = rows.map((row) => row[i % row.length]).map((release, from) => {
          return release.map(({ value, hand, offset }) => {
-            const handTo = offset === undefined ? hand : handFrom + offset
-            return { value, handFrom, handTo }
+            const to = offset === undefined ? hand : from + offset
+            return { value, from, to }
          })
       })
       throws.push(action)
@@ -337,12 +337,12 @@ function finalisePassingAsync(siteswaps) {
    const period = siteswaps.map(({ length }) => length).reduce(lcm)
    const throws = []
    for (let i = 0; i < period; i++) {
-      const action = siteswaps.map((actions) => actions[i % actions.length][0]).map((release, handFrom) => {
+      const action = siteswaps.map((actions) => actions[i % actions.length][0]).map((release, from) => {
          return release.map(({ value, pass }) => {
             if (pass === true)
-               pass = 2 - handFrom
-            const handTo = pass === null ? handFrom : pass - 1
-            return { value, handFrom, handTo }
+               pass = 2 - from
+            const to = pass === null ? from : pass - 1
+            return { value, from, to }
          })
       })
       throws.push(action)
@@ -356,12 +356,12 @@ function finalisePassingSync(siteswaps) {
    const period = siteswaps.map(({ length }) => length).reduce(lcm)
    const throws = []
    for (let i = 0; i < period; i++) {
-      const action = Array.prototype.concat(...siteswaps.map((siteswap) => siteswap[i % siteswap.length])).map((release, handFrom) => {
+      const action = Array.prototype.concat(...siteswaps.map((siteswap) => siteswap[i % siteswap.length])).map((release, from) => {
          return release.map(({ value, pass, cross }) => {
             if (pass === true)
-               pass = 2 - Math.floor(handFrom / 2)
-            const handTo = (pass === null ? handFrom : ((pass - 1) * 2) + (handFrom % 2)) + (cross ? handFrom % 2 ? -1 : 1 : 0)    // eslint-disable-line no-nested-ternary
-            return { value: value / 2, handFrom, handTo }
+               pass = 2 - Math.floor(from / 2)
+            const to = (pass === null ? from : ((pass - 1) * 2) + (from % 2)) + (cross ? from % 2 ? -1 : 1 : 0)    // eslint-disable-line no-nested-ternary
+            return { value: value / 2, from, to }
          })
       })
       throws.push(action)

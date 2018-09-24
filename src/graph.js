@@ -60,11 +60,11 @@ class State {
          if (!release.length)
             continue
 
-         for (const { value, handTo } of release) {
+         for (const { value, to } of release) {
             if (value <= 0)
                continue
 
-            next[handTo][value - 1] = (next[handTo][value - 1] || 0) + 1
+            next[to][value - 1] = (next[to][value - 1] || 0) + 1
 
             for (let h = 0; h < next.length; h++) {
                for (let k = this.schedule[0].length - 1; k < value; k++) {
@@ -105,7 +105,7 @@ function getInitialState(siteswap) {
             if (at < 0)
                continue
 
-            schedule[toss.handTo][at]++
+            schedule[toss.to][at]++
             props++
 
             if (props === siteswap.props) {

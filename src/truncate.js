@@ -19,7 +19,7 @@ function equalThrowSequence(throws1, throws2) {
          for (let k = 0; k < release1.length; k++) {
             const toss1 = release1[k]
             const toss2 = release2[k]
-            if (toss1.value !== toss2.value || toss1.handFrom !== toss2.handFrom || toss1.handTo !== toss2.handTo)
+            if (toss1.value !== toss2.value || toss1.from !== toss2.from || toss1.to !== toss2.to)
                return false
          }
       }

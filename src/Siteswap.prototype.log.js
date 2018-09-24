@@ -50,9 +50,9 @@ function log() {
             let string
 
             if (this.degree <= 2)
-               string = release.map(({ value, handFrom, handTo }) => `${value}${handFrom === handTo ? "" : "x"}`).join(",")
+               string = release.map(({ value, from, to }) => `${value}${from === to ? "" : "x"}`).join(",")
             else
-               string = release.map(({ value, handTo }) => `${value}${hands[handTo]}`).join(",")
+               string = release.map(({ value, to }) => `${value}${hands[to]}`).join(",")
 
             return release.length === 1 ? string : `[${string}]`
          })

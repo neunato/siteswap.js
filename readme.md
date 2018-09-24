@@ -51,7 +51,7 @@ __`.groundState`__ &raquo; boolean showing if the siteswap is ground state or ex
 
 __`.prime`__ &raquo; boolean showing if the siteswap is prime (cannot be decomposed).
 
-__`.throws`__ &raquo; array of tosses like `{ handFrom: int, handTo: int, value: int }` three levels deep representing the throw sequence. `.throws[1][0][3]` is the fourth (multiplex) toss of the first hand during the second throw of the sequence.
+__`.throws`__ &raquo; array of tosses like `{ from: int, to: int, value: int }` three levels deep representing the throw sequence. `.throws[1][0][3]` is the fourth (multiplex) toss of the first hand during the second throw of the sequence.
 
 __`.states`__ &raquo; array of states representing the number of props in hands over time. `.states[1][0][3]` is the number of props in the first hand, four beats after the second throw is made.
 
@@ -88,9 +88,9 @@ siteswap.fullPeriod                 // 12
 siteswap.groundState                // true
 siteswap.prime                      // true
 siteswap.throws                     // [
-                                    //  [[{ "value": 7, "handFrom": 0, "handTo": 0 }]],
-                                    //  [[{ "value": 5, "handFrom": 0, "handTo": 0 }]],
-                                    //  [[{ "value": 3, "handFrom": 0, "handTo": 0 }]]
+                                    //  [[{ "value": 7, "from": 0, "to": 0 }]],
+                                    //  [[{ "value": 5, "from": 0, "to": 0 }]],
+                                    //  [[{ "value": 3, "from": 0, "to": 0 }]]
                                     // ]
 siteswap.states                     // [
                                     //  [[1,1,1,1,1]],

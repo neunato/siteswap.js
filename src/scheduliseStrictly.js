@@ -33,7 +33,7 @@ function advance(schedule, action) {
 
       // The only way to advance from an "empty" 0-state is by throwing 0s. We don't validate structure (state to
       // toss distribution match) here because it's done in `src/graph.js` for `.states`.
-      if (!release.length && release.every(({ value, handTo, handFrom }) => value === 0 && handTo === i && handFrom === i))
+      if (!release.length && release.every(({ value, to, from }) => value === 0 && to === i && from === i))
          continue
 
       for (let j = 0; j < release.length; j++) {
@@ -42,7 +42,7 @@ function advance(schedule, action) {
          if (toss.value <= 0)
             continue
 
-         const ball = schedule[toss.handFrom][0][j]
+         const ball = schedule[toss.from][0][j]
 
          for (let h = 0; h < next.length; h++) {
             for (let k = schedule[0].length - 1; k < toss.value; k++) {
@@ -51,7 +51,7 @@ function advance(schedule, action) {
             }
          }
 
-         next[toss.handTo][toss.value - 1].push(ball)
+         next[toss.to][toss.value - 1].push(ball)
 
       }
 

@@ -24,9 +24,9 @@ function unparse(throws) {
 
 function unparseRelease(release) {
 
-   const string = release.map(({ value, handFrom, handTo }) => {
-      const cross = handFrom % 2 === handTo % 2 ? "" : "x"
-      const pass = handTo === handFrom || handTo === (handFrom + (handFrom % 2 ? -1 : 1)) ? "" : `p${Math.floor(handTo / 2) + 1}`
+   const string = release.map(({ value, from, to }) => {
+      const cross = from % 2 === to % 2 ? "" : "x"
+      const pass = to === from || to === (from + (from % 2 ? -1 : 1)) ? "" : `p${Math.floor(to / 2) + 1}`
       return `${value * 2}${cross}${pass}`
    }).join(",")
    return release.length > 1 ? `[${string}]` : string

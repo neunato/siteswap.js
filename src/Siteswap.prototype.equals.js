@@ -42,7 +42,7 @@ function match(throws1, throws2, offset) {
             const toss1 = throws1[o][j][k]
             const toss2 = throws2[i][j][k]
 
-            if (toss1.value !== toss2.value || toss1.handFrom !== toss2.handFrom || toss1.handTo !== toss2.handTo)
+            if (toss1.value !== toss2.value || toss1.from !== toss2.from || toss1.to !== toss2.to)
                return false
          }
       }
