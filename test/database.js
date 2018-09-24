@@ -90,6 +90,10 @@ register("(0,0)(0,4)", [
    [[{ "value": 0, "handFrom": 0, "handTo": 0 }], [{ "value": 0, "handFrom": 1, "handTo": 1 }]],
    [[{ "value": 0, "handFrom": 0, "handTo": 0 }], [{ "value": 2, "handFrom": 1, "handTo": 1 }]]
 ])
+register("(cx,a)*", [
+   [[{ "value": 6, "handFrom": 0, "handTo": 1 }], [{ "value": 5, "handFrom": 1, "handTo": 1 }]],
+   [[{ "value": 5, "handFrom": 0, "handTo": 0 }], [{ "value": 6, "handFrom": 1, "handTo": 0 }]]
+])
 register("B3 | C3 | A3", [
    [[{ "value": 3, "handFrom": 0, "handTo": 1 }], [{ "value": 3, "handFrom": 1, "handTo": 2 }], [{ "value": 3, "handFrom": 2, "handTo": 0 }]]
 ])

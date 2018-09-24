@@ -13,8 +13,9 @@ const tests = {
 
       // Validity.
       " ":                   { valid: false },
-      "šđžć":                { valid: false },
+      "š":                   { valid: false },
       "5":                   { valid: true },
+      "b":                   { valid: false },
       "53":                  { valid: true, period: 1 },
       "5,5,5":               { valid: true, period: 1 },
       "5,3":                 { valid: true },
@@ -50,7 +51,7 @@ const tests = {
 
       // Validity.
       " ":                                       { valid: false },
-      "šđžć":                                    { valid: false },
+      "š":                                       { valid: false },
       "(44)":                                    { valid: false },
       "(4x4x)":                                  { valid: false },
       "(4,4)":                                   { valid: true },
@@ -62,6 +63,7 @@ const tests = {
       "(4x 4x)(4 4)":                            { valid: true },
       "(4x,4x)(4 4)":                            { valid: false },
       "(4x,4x),(4,4)":                           { valid: false },
+      "(cx,a)*":                                 { valid: false },
       "([44],0)":                                { valid: false },
       "([4,4],0)":                               { valid: true },
       "([44x],2x)":                              { valid: false },
@@ -90,7 +92,7 @@ const tests = {
 
       // Validity.
       " ":         { valid: false },
-      "šđžć":      { valid: false },
+      "š":         { valid: false },
       "  5":       { valid: true },
       "5  ":       { valid: true },
       " 5 ":       { valid: true },
@@ -111,8 +113,15 @@ const tests = {
       "5,[33],1":  { valid: false },
       "5,[3,3],1": { valid: false },
 
+      // Alphabetic throw values.
+      "a":         { valid: true, greatestValue: 10 },
+      "z":         { valid: true, greatestValue: 35 },
+      "A":         { valid: true, greatestValue: 36 },
+      "Z":         { valid: true, greatestValue: 61 },
+
       // Parsing results.
       "0":         { valid: true, throws: [[[{ value: 0, handFrom: 0, handTo: 0 }]]] },
+      "b":         { valid: true, throws: [[[{ value: 11, handFrom: 0, handTo: 0 }]]] },
       "51":        { valid: true, throws: [[[{ value: 5, handFrom: 0, handTo: 0 }]], [[{ value: 1, handFrom: 0, handTo: 0 }]]] },
       "[31]":      { valid: true, throws: [[[{ value: 3, handFrom: 0, handTo: 0 }, { value: 1, handFrom: 0, handTo: 0 }]]] },
       "42[33]":    { valid: true, throws: [[[{ value: 4, handFrom: 0, handTo: 0 }]], [[{ value: 2, handFrom: 0, handTo: 0 }]], [[{ value: 3, handFrom: 0, handTo: 0 }, { value: 3, handFrom: 0, handTo: 0 }]]] }
@@ -123,7 +132,7 @@ const tests = {
 
       // Validity.
       " ":               { valid: false },
-      "šđžć":            { valid: false },
+      "š":               { valid: false },
       "  (44)":          { valid: true },
       "(44)  ":          { valid: true },
       " (44) ":          { valid: true },
@@ -143,9 +152,18 @@ const tests = {
       "([2x2x],0)*":     { valid: true },
       "([2x,2x],0)*":    { valid: false },
 
+      // Alphabetic throw values.
+      "(a,0)":         { valid: true, greatestValue: 5 },
+      "(b,0)":         { valid: false },
+      "(z,0)":         { valid: false },
+      "(A,0)":         { valid: true, greatestValue: 18 },
+      "(Y,0)":         { valid: true, greatestValue: 30 },
+      "(Z,0)":         { valid: false },
+
       // Parsing results.
       "(0,0)":           { valid: true, throws: [[[{ value: 0, handFrom: 0, handTo: 0 }], [{ value: 0, handFrom: 1, handTo: 1 }]]] },
       "(4,2x)*":         { valid: true, throws: [[[{ value: 2, handFrom: 0, handTo: 0 }], [{ value: 1, handFrom: 1, handTo: 0 }]], [[{ value: 1, handFrom: 0, handTo: 1 }], [{ value: 2, handFrom: 1, handTo: 1 }]]] },
+      "(cx,a)*":         { valid: true, throws: [[[{ value: 6, handFrom: 0, handTo: 1 }], [{ value: 5, handFrom: 1, handTo: 1 }]], [[{ value: 5, handFrom: 0, handTo: 0 }], [{ value: 6, handFrom: 1, handTo: 0 }]]] },
       "([44x],2x)":      { valid: true, throws: [[[{ value: 2, handFrom: 0, handTo: 0 }, { value: 2, handFrom: 0, handTo: 1 }], [{ value: 1, handFrom: 1, handTo: 0 }]]] }
 
    },
@@ -156,7 +174,7 @@ const tests = {
 
       // Validity.
       " ":                                               { valid: false },
-      "šđžć":                                            { valid: false },
+      "š":                                               { valid: false },
       "5|5":                                             { valid: false },
       "<5,3,1>":                                         { valid: false },
       "<5,3,1|4>":                                       { valid: true },
@@ -195,7 +213,7 @@ const tests = {
 
       // Validity.
       " ":                                                     { valid: false },
-      "šđžć":                                                  { valid: false },
+      "š":                                                     { valid: false },
       " 5":                                                    { valid: false },
       "(4,4)|(4,4)":                                           { valid: false },
       "<(4,4)|(4,4)>":                                         { valid: true },

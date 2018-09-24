@@ -1,5 +1,6 @@
 
 import { parse } from "./parser/parse"
+import { ntoa }  from "../misc"
 
 
 const declaration = {
@@ -18,7 +19,10 @@ function unparse(throws) {
 
    return throws.map((action) => {
       const result = action.map((release) => {
-         const string = release.map(({ value, handFrom, handTo }) => `${value * 2}${handFrom === handTo ? "" : "x"}`).join("")
+         const string = release.map(({ value, handFrom, handTo }) => {
+            value *= 2
+            return `${(value > 9 ? ntoa(value) : value)}${handFrom === handTo ? "" : "x"}`
+         }).join("")
          return release.length > 1 ? `[${string}]` : string
       })
       return `(${result})`

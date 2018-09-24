@@ -1,6 +1,6 @@
 
 import { numeric } from "../../alphabetic"
-
+import { aton }    from "../../misc"
 
 
 let whitespace = true
@@ -112,8 +112,8 @@ const terminals = [
    { tokenType: "p", regex: "p", processor: () => true },
    { tokenType: "digit", regex: "[0-9]", processor: toNumber },
    { tokenType: "digit_even", regex: "[02468]", processor: toNumber },
-   { tokenType: "letter", regex: "[a-zA-Z]", processor: numerify },
-   { tokenType: "letter_even", regex: "[acegikmoqsuwyACEGIKMOQSUWY]", processor: numerify },
+   { tokenType: "letter", regex: "[a-zA-Z]", processor: aton },
+   { tokenType: "letter_even", regex: "[acegikmoqsuwyACEGIKMOQSUWY]", processor: aton },
    { tokenType: "letter_capital", regex: "[A-Z]" },
    { tokenType: "integer", regex: "[1-9][0-9]*|[0-9]", processor: toNumber },
    { tokenType: "integer_even", regex: "[1-9][0-9]*[02468]|[02468]", processor: toNumber }
@@ -265,13 +265,6 @@ for (let i = 0; i < terminals.length; i++) {
 
 function toNumber(n) {
    return Number(n)
-}
-
-function numerify(letter) {
-   if (letter < "a")
-      return letter.charCodeAt(0) - "A".charCodeAt(0) + 36
-   else
-      return letter.charCodeAt(0) - "a".charCodeAt(0) + 10
 }
 
 function lcm(a, b) {
