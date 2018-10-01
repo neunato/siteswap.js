@@ -21,6 +21,9 @@ function mark(orbit, map, throws, i, j) {
 
 function orbitise(siteswap) {
 
+   if (siteswap.greatestValue === 0)
+      return [siteswap]
+
    const { throws, notation } = siteswap
    const orbits = []
 

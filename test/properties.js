@@ -115,6 +115,8 @@ describe("Properties", () => {
    test("states", {
       "54": undefined,
 
+      "0": [[[]]],
+
       "b": [
          [[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]]
       ],
@@ -143,6 +145,8 @@ describe("Properties", () => {
 
    test("strictStates", {
       "54": undefined,
+
+      "0": [[[]]],
 
       "b": [
          [[[1], [2], [3], [4], [5], [6], [7], [8], [9], [10], [11]]],
@@ -245,6 +249,7 @@ describe("Properties", () => {
 
    test("orbits", {
       "54": undefined,
+      "0": [get("0")],
       "531": [get("501"), get("030")],
       "531531": [get("501"), get("030")],
       "501": [get("501")],
@@ -257,6 +262,7 @@ describe("Properties", () => {
 
    test("composition", {
       "54": undefined,
+      "0": [get("0")],
       "531": [get("531")],
       "531531": [get("531")],
       "51414": [get("51"), get("414")],
@@ -272,6 +278,7 @@ describe("Methods", () => {
 
    test("rotate()", {
       "54": { args: [], error: (e) => e.name === "SiteswapError" && e.message === "Invalid siteswap." },
+      "0":  { args: [], result: get("0") },
       "531": [
          { args: [-3], result: get("531") },
          { args: [-2], result: get("315") },
@@ -288,6 +295,7 @@ describe("Methods", () => {
 
    test("equals()", {
       "54":      { args: [], error: (e) => e.name === "SiteswapError" && e.message === "Invalid siteswap." },
+      "0":       { args: [get("0")], result: true },
       "(4,2x)*": { args: [get("(4,2x)(2x,4)")], result: true },
       "531531":  { args: [get("531")], result: true },
       "531":     { args: [get("315")], result: true }
