@@ -7,7 +7,7 @@ const declaration = {
 
    limits: {
       degree: { min: 2, max: 2 },
-      greatestValue: { max: 61 }
+      greatestValue: { max: 30 }
    },
    hands: () => ["Left", "Right"],
    parse: (string) => parse("compressed_sync", string),
